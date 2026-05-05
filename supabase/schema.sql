@@ -45,6 +45,10 @@ alter table public.companies enable row level security;
 alter table public.intel_items enable row level security;
 alter table public.pm_actions enable row level security;
 
+drop policy if exists "service role manages companies" on public.companies;
+drop policy if exists "service role manages intel items" on public.intel_items;
+drop policy if exists "service role manages pm actions" on public.pm_actions;
+
 create policy "service role manages companies"
   on public.companies
   using (auth.role() = 'service_role')
