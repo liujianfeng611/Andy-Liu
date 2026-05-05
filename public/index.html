@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Andy Workstation</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="terminal-shell">
+      <aside class="left-rail">
+        <header class="rail-head">
+          <div class="logo">A</div>
+          <strong>Andy Workstation</strong>
+          <button class="ghost-icon" title="收起">‹</button>
+          <button class="ghost-icon" title="主题">☼</button>
+          <button class="ghost-icon" title="搜索">⌕</button>
+        </header>
+
+        <nav class="rail-tabs" aria-label="工作区导航">
+          <button class="active">笔记</button>
+          <button>团队</button>
+          <button>Daily</button>
+          <button>文件夹</button>
+        </nav>
+
+        <button class="filter-button">
+          <span>☷ 阅读筛选</span>
+          <span>1000/1000⌄</span>
+        </button>
+
+        <div id="noteStream" class="note-stream"></div>
+
+        <footer class="user-card">
+          <div class="avatar">L</div>
+          <div>
+            <strong>Liu Jianfeng</strong>
+            <span>liujianfeng611@gmail.com</span>
+          </div>
+          <button class="ghost-icon" title="同步">⌁</button>
+          <button class="ghost-icon" title="退出">⇥</button>
+        </footer>
+      </aside>
+
+      <main class="main-stage">
+        <nav class="agent-tabs" aria-label="Agent频道">
+          <button class="active">首页</button>
+          <button>Andy PM Agent</button>
+          <button>日度Agent</button>
+          <button>周报Agent</button>
+          <button>半导体Agent</button>
+          <button>消费Agent</button>
+          <button>工业商品Agent</button>
+          <button>日本Agent</button>
+          <button>军工金融Agent</button>
+        </nav>
+
+        <section class="hero-card card">
+          <div class="card-title">
+            <div>
+              <span class="icon">▣</span>
+              <strong>PM Daily Brief</strong>
+            </div>
+            <div class="muted-row">
+              <span id="todayStamp">2026-05-04</span>
+              <button id="refreshBtn" class="link-button">刷新</button>
+              <a href="#full-brief">完整版 →</a>
+            </div>
+          </div>
+
+          <div class="brief-box">
+            <div>
+              <span class="kicker">DAILY BRIEF</span>
+              <h1>今日提要</h1>
+            </div>
+            <div class="last-update">
+              <span>最后更新</span>
+              <strong id="lastUpdate">19:02</strong>
+            </div>
+            <ol id="briefList" class="brief-list"></ol>
+          </div>
+        </section>
+
+        <section class="workflow-card card">
+          <div class="card-title">
+            <div>
+              <span class="icon">▦</span>
+              <strong>基金经理工作流</strong>
+            </div>
+            <span class="muted-row">信息 → 判断 → 动作 → 复盘</span>
+          </div>
+          <div id="workflowGrid" class="workflow-grid"></div>
+        </section>
+
+        <section class="pm-board card">
+          <div class="pm-column">
+            <div class="card-title compact">
+              <div>
+                <span class="icon">≋</span>
+                <strong>持仓影响矩阵</strong>
+              </div>
+              <span class="muted-row">事件驱动</span>
+            </div>
+            <div id="impactMatrix" class="impact-matrix"></div>
+          </div>
+          <div class="pm-column">
+            <div class="card-title compact">
+              <div>
+                <span class="icon">☑</span>
+                <strong>研究队列</strong>
+              </div>
+              <span class="muted-row">今日待办</span>
+            </div>
+            <div id="researchQueue" class="research-queue"></div>
+          </div>
+        </section>
+
+        <section class="market-card card">
+          <div class="card-title">
+            <div>
+              <span class="icon">◎</span>
+              <strong>全球市场</strong>
+            </div>
+            <span class="muted-row">22:02  ↻</span>
+          </div>
+          <div class="market-grid">
+            <div class="market-panel wide">
+              <div class="panel-head">
+                <strong>国家 / 地区指数</strong>
+                <span>12 ↑</span>
+              </div>
+              <div id="regionalMarkets" class="quote-grid"></div>
+            </div>
+            <div class="market-panel">
+              <div class="panel-head">
+                <strong>跨资产指标</strong>
+                <span>8 ↑</span>
+              </div>
+              <div id="assetMarkets" class="quote-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="agent-card card">
+          <div class="card-title">
+            <div>
+              <span class="icon">✦</span>
+              <strong>Andy PM Agent</strong>
+            </div>
+            <a href="#full-agent">完整版 →</a>
+          </div>
+          <div class="agent-center">
+            <p>询问你的投资工作台 — 持仓、主题、催化剂、风险和待办</p>
+            <div class="prompt-chips">
+              <button>今天哪些信息影响仓位</button>
+              <button>我现在持仓的主要风险</button>
+              <button>下周要跟踪哪些催化剂</button>
+            </div>
+          </div>
+          <form id="askForm" class="ask-row">
+            <input id="askInput" placeholder="问什么...（Enter 发送，Shift+Enter 换行）" />
+            <button title="发送">➤</button>
+          </form>
+        </section>
+      </main>
+
+      <aside class="right-drawer">
+        <section class="mini-card">
+          <div class="drawer-title">
+            <strong>投资组合雷达</strong>
+            <button id="addCompanyBtn" class="mini-button">+</button>
+          </div>
+          <div id="companyList" class="company-pills"></div>
+        </section>
+
+        <section class="mini-card">
+          <div class="drawer-title">
+            <strong>当前公司</strong>
+            <span id="activeTicker">AAPL</span>
+          </div>
+          <div class="field-stack">
+            <label>公司<input id="companyNameInput" /></label>
+            <label>代码<input id="tickerInput" /></label>
+            <label>CIK<input id="cikInput" /></label>
+            <label>主题<input id="topicsInput" /></label>
+            <button id="saveCompanyBtn" class="mini-button full">保存</button>
+          </div>
+        </section>
+
+        <section class="mini-card">
+          <div class="drawer-title">
+            <strong>资料入口</strong>
+          </div>
+          <label class="import-box">
+            <input id="fileInput" type="file" multiple accept=".txt,.md,.csv,.json,.html,.htm" />
+            <span>导入本地/订阅资料</span>
+            <small>研报、导出件、会议纪要</small>
+          </label>
+          <textarea id="noteInput" placeholder="记录观点、待验证问题、仓位影响..."></textarea>
+          <button id="saveNoteBtn" class="mini-button full">保存研究笔记</button>
+        </section>
+      </aside>
+    </div>
+
+    <dialog id="companyDialog">
+      <form method="dialog" class="dialog-card">
+        <h3>添加关注公司</h3>
+        <label>公司名称<input id="newCompanyName" placeholder="Amazon.com Inc." /></label>
+        <label>股票代码<input id="newTicker" placeholder="AMZN" /></label>
+        <label>SEC CIK<input id="newCik" placeholder="0001018724" /></label>
+        <menu>
+          <button value="cancel" class="mini-button">取消</button>
+          <button id="confirmAddCompany" value="default" class="mini-button primary">添加</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

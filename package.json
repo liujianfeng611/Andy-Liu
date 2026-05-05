@@ -1,0 +1,18 @@
+{
+  "name": "investment-intel-workstation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "wrangler pages dev public --compatibility-date=2026-05-05",
+    "deploy": "wrangler pages deploy public --project-name=andy-workstation",
+    "check": "node --check server.js && node --check public/app.js && node --check 'functions/api/[[path]].js'"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "wrangler": "^4.14.0"
+  }
+}
