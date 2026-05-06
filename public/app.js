@@ -103,7 +103,7 @@ const els = {
   saveNoteBtn: document.querySelector("#saveNoteBtn"),
   newMaterialBtn: document.querySelector("#newMaterialBtn"),
   selectedMaterialMeta: document.querySelector("#selectedMaterialMeta"),
-  materialUrlLink: document.querySelector("#materialUrlLink"),
+  openMaterialUrlBtn: document.querySelector("#openMaterialUrlBtn"),
   materialTitleInput: document.querySelector("#materialTitleInput"),
   materialFolderSelect: document.querySelector("#materialFolderSelect"),
   materialTypeSelect: document.querySelector("#materialTypeSelect"),
@@ -248,6 +248,11 @@ function materialTags(item) {
   return Array.isArray(item?.tags) ? item.tags : [];
 }
 
+function materialUrl(item) {
+  const url = item?.url || item?.raw?.url || "";
+  return /^https?:\/\//i.test(url) ? url : "";
+}
+
 function selectedItem() {
   const visible = filteredItems();
   return visible.find((item) => item.id === state.activeItemId) || visible[0] || null;
@@ -304,15 +309,21 @@ function renderNotes() {
   const rows = filteredItems().slice(0, 18);
   const selectedId = selectedItem()?.id;
 
-  els.noteStream.innerHTML = rows.map((item) => `
-    <button class="note-item ${item.id === selectedId ? "active" : ""}" data-item-id="${escapeHtml(item.id)}" type="button">
+  els.noteStream.innerHTML = rows.map((item) => {
+    const link = materialUrl(item);
+    return `
+    <article class="note-item ${item.id === selectedId ? "active" : ""}">
+      <button class="note-select" data-item-id="${escapeHtml(item.id)}" type="button">
       <div class="note-title">${escapeHtml(item.title)}</div>
       <div class="note-meta">
         <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
         <span class="tag">${escapeHtml(item.source || item.form || "OPEN")}</span>
       </div>
-    </button>
-  `).join("") || `<div class="empty-list">没有找到匹配材料</div>`;
+      </button>
+      ${link ? `<button class="note-link" data-open-url="${escapeHtml(link)}" type="button">原文</button>` : ""}
+    </article>
+  `;
+  }).join("") || `<div class="empty-list">没有找到匹配材料</div>`;
 }
 
 function renderIntakeQueue() {
@@ -340,6 +351,7 @@ function renderIntakeQueue() {
 function briefLine(item, index) {
   const side = index === 0 ? "多头证据" : index === 1 ? "空头信号" : index === 2 ? "基本面" : "待验证";
   const source = item.type === "filing" ? "sec agent" : item.type === "local" ? "local analyst" : "daily analyst";
+  const link = materialUrl(item);
   return `
     <li>
       <span class="brief-index">${String(index + 1).padStart(2, "0")}</span>
@@ -347,6 +359,7 @@ function briefLine(item, index) {
       <div class="brief-copy">
         <strong>${escapeHtml(source)}</strong>
         <p>${escapeHtml(side)}：${escapeHtml(item.summary || item.title)}</p>
+        ${link ? `<button class="inline-source-link" data-open-url="${escapeHtml(link)}" type="button">打开原文</button>` : ""}
       </div>
     </li>
   `;
@@ -467,8 +480,8 @@ function renderEditor() {
 
   if (!item) {
     els.selectedMaterialMeta.textContent = "未选择";
-    els.materialUrlLink.hidden = true;
-    els.materialUrlLink.removeAttribute("href");
+    els.openMaterialUrlBtn.hidden = true;
+    els.openMaterialUrlBtn.dataset.openUrl = "";
     els.materialTitleInput.value = "";
     els.materialFolderSelect.value = "inbox";
     els.materialTypeSelect.value = "local";
@@ -478,11 +491,10 @@ function renderEditor() {
     return;
   }
 
-  const link = item.url || item.raw?.url || "";
+  const link = materialUrl(item);
   els.selectedMaterialMeta.textContent = `${item.source || item.form || item.type} · ${formatTime(item.publishedAt || item.createdAt)} · ${activeCompany().ticker || activeCompany().name}`;
-  els.materialUrlLink.hidden = !link;
-  if (link) els.materialUrlLink.href = link;
-  else els.materialUrlLink.removeAttribute("href");
+  els.openMaterialUrlBtn.hidden = !link;
+  els.openMaterialUrlBtn.dataset.openUrl = link;
   els.materialTitleInput.value = item.title || "";
   els.materialFolderSelect.value = item.folderId || (item.companyId ? "company" : "inbox");
   els.materialTypeSelect.value = item.type || "local";
@@ -712,6 +724,15 @@ function addCompany() {
 }
 
 els.refreshBtn.addEventListener("click", refreshOpenInfo);
+document.addEventListener("click", (event) => {
+  const opener = event.target.closest("[data-open-url]");
+  if (!opener) return;
+  const url = opener.dataset.openUrl;
+  if (!url) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openExternalUrl(url);
+});
 els.noteStream.addEventListener("click", (event) => {
   const button = event.target.closest("[data-item-id]");
   if (!button) return;
@@ -754,6 +775,11 @@ els.askForm.addEventListener("submit", (event) => {
 
 render();
 syncFromBackend();
+
+function openExternalUrl(url) {
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) window.location.href = url;
+}
 
 async function askPmAgent(question) {
   const company = activeCompany();
