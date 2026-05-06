@@ -180,7 +180,10 @@
         <section class="mini-card">
           <div class="drawer-title">
             <strong>投资组合雷达</strong>
-            <button id="addCompanyBtn" class="mini-button">+</button>
+            <div class="drawer-actions">
+              <button id="importCompaniesBtn" class="mini-button">导入</button>
+              <button id="addCompanyBtn" class="mini-button">+</button>
+            </div>
           </div>
           <div id="companyList" class="company-pills"></div>
         </section>
@@ -270,6 +273,24 @@
         <menu>
           <button value="cancel" class="mini-button">取消</button>
           <button id="confirmAddCompany" value="default" class="mini-button primary">添加</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="companyImportDialog">
+      <form method="dialog" class="dialog-card import-dialog">
+        <h3>批量导入公司</h3>
+        <p class="dialog-help">从 Excel 复制表格后直接粘贴，或上传 CSV/TSV。支持列：公司、代码、CIK、主题。</p>
+        <label class="import-box">
+          <input id="companyImportFile" type="file" accept=".csv,.tsv,.txt" />
+          <span>上传 CSV / TSV</span>
+          <small>Excel 另存为 CSV 后可直接导入</small>
+        </label>
+        <textarea id="companyImportText" placeholder="公司	代码	CIK	主题&#10;Meta Platforms	META	0001326801	AI, Ads&#10;Netflix	NFLX	0001065280	Streaming"></textarea>
+        <div id="companyImportPreview" class="import-preview">等待导入</div>
+        <menu>
+          <button value="cancel" class="mini-button">取消</button>
+          <button id="confirmCompanyImport" value="default" class="mini-button primary">导入公司</button>
         </menu>
       </form>
     </dialog>

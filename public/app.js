@@ -115,7 +115,13 @@ const els = {
   viewEditor: document.querySelector("#viewEditor"),
   saveMaterialBtn: document.querySelector("#saveMaterialBtn"),
   addCompanyBtn: document.querySelector("#addCompanyBtn"),
+  importCompaniesBtn: document.querySelector("#importCompaniesBtn"),
   companyDialog: document.querySelector("#companyDialog"),
+  companyImportDialog: document.querySelector("#companyImportDialog"),
+  companyImportFile: document.querySelector("#companyImportFile"),
+  companyImportText: document.querySelector("#companyImportText"),
+  companyImportPreview: document.querySelector("#companyImportPreview"),
+  confirmCompanyImport: document.querySelector("#confirmCompanyImport"),
   confirmAddCompany: document.querySelector("#confirmAddCompany"),
   newCompanyName: document.querySelector("#newCompanyName"),
   newTicker: document.querySelector("#newTicker"),
@@ -776,6 +782,112 @@ function addCompany() {
   persistCompany(company);
 }
 
+function splitDelimitedLine(line, delimiter) {
+  const cells = [];
+  let current = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (char === '"') {
+      if (quoted && line[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (char === delimiter && !quoted) {
+      cells.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+function parseCompanyRows(text) {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return [];
+
+  const delimiter = lines.some((line) => line.includes("\t")) ? "\t" : ",";
+  const rows = lines.map((line) => splitDelimitedLine(line, delimiter));
+  const header = rows[0].map((cell) => cell.toLowerCase().replace(/\s+/g, ""));
+  const hasHeader = header.some((cell) => ["公司", "公司名称", "name", "company", "ticker", "代码", "股票代码", "cik", "主题", "topics"].includes(cell));
+  const body = hasHeader ? rows.slice(1) : rows;
+
+  const findIndex = (names, fallback) => {
+    const index = header.findIndex((cell) => names.includes(cell));
+    return index >= 0 ? index : fallback;
+  };
+  const nameIndex = hasHeader ? findIndex(["公司", "公司名称", "name", "company", "companyname"], 0) : 0;
+  const tickerIndex = hasHeader ? findIndex(["代码", "股票代码", "ticker", "symbol"], 1) : 1;
+  const cikIndex = hasHeader ? findIndex(["cik", "sec", "seccik"], 2) : 2;
+  const topicsIndex = hasHeader ? findIndex(["主题", "topics", "tags", "关注点"], 3) : 3;
+
+  return body.map((row) => {
+    const name = (row[nameIndex] || "").trim();
+    const ticker = (row[tickerIndex] || "").trim().toUpperCase();
+    const cik = (row[cikIndex] || "").replace(/\D/g, "");
+    const topics = (row[topicsIndex] || "")
+      .split(/[;,，、]/)
+      .map((topic) => topic.trim())
+      .filter(Boolean);
+    if (!name && !ticker) return null;
+    const id = (ticker || name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return {
+      id,
+      name: name || ticker,
+      ticker,
+      cik,
+      topics,
+      notes: ""
+    };
+  }).filter(Boolean);
+}
+
+function updateCompanyImportPreview() {
+  const rows = parseCompanyRows(els.companyImportText.value);
+  els.companyImportPreview.textContent = rows.length
+    ? `将导入 ${rows.length} 家公司：${rows.slice(0, 4).map((row) => row.ticker || row.name).join("、")}${rows.length > 4 ? "..." : ""}`
+    : "等待导入";
+}
+
+function importCompanies() {
+  const rows = parseCompanyRows(els.companyImportText.value);
+  if (!rows.length) return;
+
+  const existing = new Map(state.companies.map((company) => [company.id, company]));
+  rows.forEach((row) => {
+    const previous = existing.get(row.id);
+    if (previous) {
+      Object.assign(previous, {
+        name: row.name || previous.name,
+        ticker: row.ticker || previous.ticker,
+        cik: row.cik || previous.cik,
+        topics: row.topics.length ? row.topics : previous.topics
+      });
+    } else {
+      state.companies.push(row);
+      existing.set(row.id, row);
+    }
+  });
+
+  state.activeCompanyId = rows[0].id;
+  state.activeItemId = "";
+  state.searchQuery = "";
+  els.companyImportText.value = "";
+  els.companyImportFile.value = "";
+  updateCompanyImportPreview();
+  saveState();
+  render();
+  rows.forEach((company) => persistCompany(existing.get(company.id) || company));
+  maybeAutoRefreshCompany(state.activeCompanyId);
+}
+
 els.refreshBtn.addEventListener("click", refreshOpenInfo);
 document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-open-url]");
@@ -817,6 +929,18 @@ document.querySelectorAll("[data-ai-action]").forEach((button) => {
   button.addEventListener("click", () => appendMockAiOutput(button.dataset.aiAction));
 });
 els.addCompanyBtn.addEventListener("click", () => els.companyDialog.showModal());
+els.importCompaniesBtn.addEventListener("click", () => {
+  updateCompanyImportPreview();
+  els.companyImportDialog.showModal();
+});
+els.companyImportText.addEventListener("input", updateCompanyImportPreview);
+els.companyImportFile.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  els.companyImportText.value = await file.text();
+  updateCompanyImportPreview();
+});
+els.confirmCompanyImport.addEventListener("click", importCompanies);
 els.confirmAddCompany.addEventListener("click", addCompany);
 els.askForm.addEventListener("submit", (event) => {
   event.preventDefault();

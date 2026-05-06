@@ -435,6 +435,11 @@ button {
   gap: 12px;
 }
 
+.drawer-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .card-title {
   color: #e2ddd7;
   font-size: 15px;
@@ -1010,6 +1015,29 @@ dialog::backdrop {
 
 .dialog-card h3 {
   margin: 0;
+}
+
+.dialog-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.import-dialog textarea {
+  min-height: 180px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.import-preview {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0a0908;
+  color: var(--muted);
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 menu {
