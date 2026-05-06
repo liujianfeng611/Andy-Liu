@@ -7,6 +7,7 @@ const defaultState = {
   editorTab: "source",
   railView: "notes",
   folderPath: [],
+  customFolders: [],
   companies: [
     { id: "amzn", name: "Amazon.com Inc.", ticker: "AMZN", cik: "0001018724", topics: ["AI", "AWS", "retail margin", "agent commerce"], notes: "" },
     { id: "msft", name: "Microsoft Corporation", ticker: "MSFT", cik: "0000789019", topics: ["Azure", "Copilot", "OpenAI", "enterprise demand"], notes: "" },
@@ -92,6 +93,7 @@ const els = {
   impactMatrix: document.querySelector("#impactMatrix"),
   researchQueue: document.querySelector("#researchQueue"),
   folderBoard: document.querySelector("#folderBoard"),
+  folderUploadInput: document.querySelector("#folderUploadInput"),
   regionalMarkets: document.querySelector("#regionalMarkets"),
   assetMarkets: document.querySelector("#assetMarkets"),
   companyList: document.querySelector("#companyList"),
@@ -321,6 +323,17 @@ function companyCloudItems(companyId) {
     .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
 }
 
+function customFolders() {
+  return Array.isArray(state.customFolders) ? state.customFolders : [];
+}
+
+function customFolderItems(folderId) {
+  return state.items
+    .filter(isVisibleMaterial)
+    .filter((item) => item.folderId === `custom:${folderId}`)
+    .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
+}
+
 function companyOpenNewsCount(companyId) {
   return state.items
     .filter(isVisibleMaterial)
@@ -398,7 +411,7 @@ function renderCloudFolders() {
       acc.get(industry).push(company);
       return acc;
     }, new Map());
-    const rows = [...groups.entries()].map(([industry, companies]) => {
+    const industryRows = [...groups.entries()].map(([industry, companies]) => {
       const fileCount = companies.reduce((sum, company) => sum + companyCloudItems(company.id).length, 0);
       return `
         <button class="cloud-folder directory" data-open-folder="${escapeHtml(industry)}" type="button">
@@ -414,6 +427,23 @@ function renderCloudFolders() {
         </button>
       `;
     });
+    const customRows = customFolders().map((folder) => {
+      const items = customFolderItems(folder.id);
+      return `
+        <button class="cloud-folder directory custom" data-custom-folder="${escapeHtml(folder.id)}" type="button">
+          <div class="folder-icon">▰</div>
+          <div class="folder-main">
+            <strong>${escapeHtml(folder.name)}</strong>
+            <span>自定义分类 · ${items.length} 份资料</span>
+          </div>
+          <div class="folder-meta">
+            <em>${items.length}</em>
+            <span>打开</span>
+          </div>
+        </button>
+      `;
+    });
+    const rows = [...customRows, ...industryRows];
     els.noteStream.innerHTML = `
       <div class="folder-breadcrumb"><strong>云端文件夹</strong><span>按行业分类</span></div>
       ${rows.join("") || `<div class="empty-list">还没有分类文件夹。先在右侧投资组合雷达添加或导入公司。</div>`}
@@ -461,6 +491,8 @@ function groupedCompanies() {
 function renderFolderBoard() {
   const path = Array.isArray(state.folderPath) ? state.folderPath : [];
   const selectedIndustry = path[0] || "";
+  const selectedCustomId = selectedIndustry.startsWith("custom:") ? selectedIndustry.slice(7) : "";
+  const selectedCustomFolder = customFolders().find((folder) => folder.id === selectedCustomId);
   els.folderBoard.hidden = state.railView !== "folders";
   document.body.classList.toggle("folders-mode", state.railView === "folders");
   if (state.railView !== "folders") {
@@ -469,6 +501,22 @@ function renderFolderBoard() {
   }
 
   if (!selectedIndustry) {
+    const customCards = customFolders().map((folder) => {
+      const items = customFolderItems(folder.id);
+      return `
+        <article class="folder-card-large custom-folder-card">
+          <button class="folder-card-head" data-custom-folder="${escapeHtml(folder.id)}" type="button">
+            <span class="folder-card-icon">▰</span>
+            <strong>${escapeHtml(folder.name)}</strong>
+            <em>${items.length}</em>
+          </button>
+          <div class="folder-chip-grid">
+            <button class="folder-chip" data-custom-folder="${escapeHtml(folder.id)}" type="button"><span>▱</span>打开</button>
+            <button class="folder-chip" data-upload-folder="${escapeHtml(folder.id)}" type="button"><span>＋</span>上传资料</button>
+          </div>
+        </article>
+      `;
+    }).join("");
     const cards = [...groupedCompanies().entries()].map(([industry, companies]) => {
       const fileCount = companies.reduce((sum, company) => sum + companyCloudItems(company.id).length, 0);
       const chips = companies.slice(0, 8).map((company) => `
@@ -494,9 +542,37 @@ function renderFolderBoard() {
           <span>公开</span>
           <h2>云端文件夹</h2>
         </div>
-        <p>按行业分类存放公司资料</p>
+        <div class="folder-board-actions">
+          <button data-create-folder type="button">新建分类</button>
+        </div>
       </div>
-      <div class="folder-card-grid-main">${cards}</div>
+      <div class="folder-card-grid-main">${customCards}${cards}</div>
+    `;
+    return;
+  }
+
+  if (selectedCustomFolder) {
+    const items = customFolderItems(selectedCustomFolder.id);
+    const cards = items.map((item) => `
+      <article class="folder-card-large file-card">
+        <button class="folder-card-head" data-item-id="${escapeHtml(item.id)}" type="button">
+          <span class="folder-card-icon">▱</span>
+          <strong>${escapeHtml(readableText(item.title))}</strong>
+          <em>${escapeHtml(item.source || "FILE")}</em>
+        </button>
+        <p>${escapeHtml(readableText(item.summary || item.sourceText || "已上传资料"))}</p>
+        <small>${formatTime(item.publishedAt || item.createdAt)}</small>
+      </article>
+    `).join("");
+
+    els.folderBoard.innerHTML = `
+      <div class="folder-board-top">
+        <button class="folder-board-back" data-folder-back type="button">← 云端文件夹 / ${escapeHtml(selectedCustomFolder.name)}</button>
+        <div class="folder-board-actions">
+          <button data-upload-folder="${escapeHtml(selectedCustomFolder.id)}" type="button">上传资料</button>
+        </div>
+      </div>
+      <div class="folder-card-grid-main">${cards || `<div class="empty-list">这个分类还没有资料。点击右上角上传。</div>`}</div>
     `;
     return;
   }
@@ -1137,6 +1213,56 @@ function importCompanies() {
   maybeAutoRefreshCompany(state.activeCompanyId);
 }
 
+function createCustomFolder() {
+  const name = prompt("新建分类文件夹名称");
+  if (!name?.trim()) return;
+  const folder = {
+    id: `folder-${Date.now().toString(36)}`,
+    name: name.trim(),
+    createdAt: new Date().toISOString()
+  };
+  state.customFolders = [...customFolders(), folder];
+  state.railView = "folders";
+  state.folderPath = [`custom:${folder.id}`];
+  saveState();
+  render();
+}
+
+async function uploadFilesToCustomFolder(files, folderId) {
+  const folder = customFolders().find((row) => row.id === folderId);
+  if (!folder) return;
+  const imported = await Promise.all([...files].map(async (file) => {
+    let text = "";
+    try {
+      text = await file.text();
+    } catch {
+      text = "";
+    }
+    const now = new Date().toISOString();
+    const summary = text.replace(/\s+/g, " ").trim().slice(0, 280);
+    return {
+      id: `${folder.id}-${file.name}-${file.lastModified || Date.now()}`,
+      companyId: null,
+      type: "local",
+      folderId: `custom:${folder.id}`,
+      tags: ["自定义分类", folder.name],
+      title: file.name,
+      source: folder.name,
+      sourceText: text || `文件已上传到「${folder.name}」。暂不支持直接解析此文件类型。`,
+      viewText: "",
+      createdAt: now,
+      publishedAt: now,
+      summary: summary || `${file.name} 已上传到「${folder.name}」`
+    };
+  }));
+  addItems(imported);
+  state.railView = "folders";
+  state.folderPath = [`custom:${folder.id}`];
+  els.folderUploadInput.value = "";
+  saveState();
+  render();
+}
+
 els.refreshBtn.addEventListener("click", refreshOpenInfo);
 document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-open-url]");
@@ -1166,6 +1292,25 @@ document.addEventListener("click", (event) => {
   const folder = event.target.closest("[data-folder-company]");
   if (folder) {
     selectCompany(folder.dataset.folderCompany);
+    return;
+  }
+  const customFolder = event.target.closest("[data-custom-folder]");
+  if (customFolder) {
+    state.railView = "folders";
+    state.folderPath = [`custom:${customFolder.dataset.customFolder}`];
+    saveState();
+    render();
+    return;
+  }
+  const createFolder = event.target.closest("[data-create-folder]");
+  if (createFolder) {
+    createCustomFolder();
+    return;
+  }
+  const uploadFolder = event.target.closest("[data-upload-folder]");
+  if (uploadFolder) {
+    els.folderUploadInput.dataset.folderId = uploadFolder.dataset.uploadFolder;
+    els.folderUploadInput.click();
   }
 });
 document.querySelectorAll("[data-rail-view]").forEach((button) => {
@@ -1190,6 +1335,7 @@ els.searchInput.addEventListener("input", (event) => {
   render();
 });
 els.fileInput.addEventListener("change", (event) => importFiles(event.target.files));
+els.folderUploadInput.addEventListener("change", (event) => uploadFilesToCustomFolder(event.target.files, event.target.dataset.folderId));
 els.saveCompanyBtn.addEventListener("click", updateActiveCompanyFromForm);
 els.saveNoteBtn.addEventListener("click", saveResearchNote);
 els.newMaterialBtn.addEventListener("click", createMaterial);

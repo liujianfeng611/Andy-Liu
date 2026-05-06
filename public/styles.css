@@ -548,6 +548,22 @@ body.folders-mode .agent-card {
   font-size: 12px;
 }
 
+.folder-board-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.folder-board-actions button {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #24211e;
+  color: #ded8d1;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .folder-card-grid-main {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -560,6 +576,14 @@ body.folders-mode .agent-card {
   border-radius: 10px;
   background: #14110f;
   padding: 14px;
+}
+
+.custom-folder-card {
+  border-color: #3a3528;
+}
+
+.file-card {
+  min-height: 150px;
 }
 
 .folder-card-head {
