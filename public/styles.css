@@ -511,6 +511,143 @@ button {
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.22);
 }
 
+body.folders-mode .hero-card,
+body.folders-mode .workflow-card,
+body.folders-mode .pm-board,
+body.folders-mode .market-card,
+body.folders-mode .agent-card {
+  display: none;
+}
+
+.folder-board {
+  display: grid;
+  gap: 14px;
+}
+
+.folder-board-top {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+}
+
+.folder-board-top span {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.folder-board-top h2 {
+  color: #eee8df;
+  font-size: 18px;
+  margin: 4px 0 0;
+}
+
+.folder-board-top p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.folder-card-grid-main {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.folder-card-large {
+  min-height: 190px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #14110f;
+  padding: 14px;
+}
+
+.folder-card-head {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #eee8df;
+  padding: 0;
+  text-align: left;
+}
+
+.folder-card-head strong {
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-card-head em {
+  color: var(--muted);
+  font-style: normal;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.folder-card-icon {
+  color: #d2b45a;
+  font-size: 18px;
+}
+
+.folder-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.folder-chip {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #090908;
+  color: #d8d1ca;
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.folder-chip span {
+  color: var(--muted);
+  margin-right: 5px;
+}
+
+.folder-chip.static {
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.folder-empty,
+.company-folder p,
+.company-folder small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.company-folder p {
+  margin: 10px 0 0;
+}
+
+.company-folder small {
+  display: block;
+  margin-top: 12px;
+}
+
+.folder-board-back {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: #8dddff;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .hero-card,
 .workflow-card,
 .pm-board,

@@ -91,6 +91,7 @@ const els = {
   workflowGrid: document.querySelector("#workflowGrid"),
   impactMatrix: document.querySelector("#impactMatrix"),
   researchQueue: document.querySelector("#researchQueue"),
+  folderBoard: document.querySelector("#folderBoard"),
   regionalMarkets: document.querySelector("#regionalMarkets"),
   assetMarkets: document.querySelector("#assetMarkets"),
   companyList: document.querySelector("#companyList"),
@@ -448,6 +449,85 @@ function renderCloudFolders() {
   `;
 }
 
+function groupedCompanies() {
+  return state.companies.reduce((acc, company) => {
+    const industry = inferIndustry(company);
+    if (!acc.has(industry)) acc.set(industry, []);
+    acc.get(industry).push(company);
+    return acc;
+  }, new Map());
+}
+
+function renderFolderBoard() {
+  const path = Array.isArray(state.folderPath) ? state.folderPath : [];
+  const selectedIndustry = path[0] || "";
+  els.folderBoard.hidden = state.railView !== "folders";
+  document.body.classList.toggle("folders-mode", state.railView === "folders");
+  if (state.railView !== "folders") {
+    els.folderBoard.innerHTML = "";
+    return;
+  }
+
+  if (!selectedIndustry) {
+    const cards = [...groupedCompanies().entries()].map(([industry, companies]) => {
+      const fileCount = companies.reduce((sum, company) => sum + companyCloudItems(company.id).length, 0);
+      const chips = companies.slice(0, 8).map((company) => `
+        <button class="folder-chip" data-folder-company="${escapeHtml(company.id)}" type="button">
+          <span>▱</span>${escapeHtml(company.ticker || company.name)}
+        </button>
+      `).join("");
+      return `
+        <article class="folder-card-large">
+          <button class="folder-card-head" data-open-folder="${escapeHtml(industry)}" type="button">
+            <span class="folder-card-icon">▰</span>
+            <strong>${escapeHtml(industry)}</strong>
+            <em>${fileCount}</em>
+          </button>
+          <div class="folder-chip-grid">${chips || '<span class="folder-empty">暂无公司</span>'}</div>
+        </article>
+      `;
+    }).join("");
+
+    els.folderBoard.innerHTML = `
+      <div class="folder-board-top">
+        <div>
+          <span>公开</span>
+          <h2>云端文件夹</h2>
+        </div>
+        <p>按行业分类存放公司资料</p>
+      </div>
+      <div class="folder-card-grid-main">${cards}</div>
+    `;
+    return;
+  }
+
+  const companies = state.companies.filter((company) => inferIndustry(company) === selectedIndustry);
+  const cards = companies.map((company) => {
+    const cloudItems = companyCloudItems(company.id);
+    const latest = cloudItems[0];
+    const subfolders = ["公开互联网", "订阅资料", "本地上传"].map((label) => `
+      <span class="folder-chip static"><span>▱</span>${label}</span>
+    `).join("");
+    return `
+      <article class="folder-card-large company-folder">
+        <button class="folder-card-head" data-folder-company="${escapeHtml(company.id)}" type="button">
+          <span class="folder-card-icon">▱</span>
+          <strong>${escapeHtml(company.ticker || company.name)}</strong>
+          <em>${cloudItems.length}</em>
+        </button>
+        <p>${escapeHtml(company.name || company.ticker)}</p>
+        <div class="folder-chip-grid">${subfolders}</div>
+        <small>${latest ? `最近 ${formatTime(latest.publishedAt || latest.createdAt)}` : "空文件夹"}</small>
+      </article>
+    `;
+  }).join("");
+
+  els.folderBoard.innerHTML = `
+    <button class="folder-board-back" data-folder-back type="button">← 云端文件夹 / ${escapeHtml(selectedIndustry)}</button>
+    <div class="folder-card-grid-main">${cards || `<div class="empty-list">${escapeHtml(selectedIndustry)} 下面还没有公司文件夹。</div>`}</div>
+  `;
+}
+
 function renderIntakeQueue() {
   const counts = {
     open: state.items.filter((item) => item.type === "open").length,
@@ -711,6 +791,7 @@ function render() {
   renderRailTabs();
   renderIntakeQueue();
   renderNotes();
+  renderFolderBoard();
   renderBrief();
   renderWorkflow();
   renderPmBoard();
@@ -1066,6 +1147,27 @@ document.addEventListener("click", (event) => {
   event.stopPropagation();
   openExternalUrl(url);
 });
+document.addEventListener("click", (event) => {
+  const back = event.target.closest("[data-folder-back]");
+  if (back) {
+    state.folderPath = [];
+    saveState();
+    render();
+    return;
+  }
+  const openFolder = event.target.closest("[data-open-folder]");
+  if (openFolder) {
+    state.railView = "folders";
+    state.folderPath = [openFolder.dataset.openFolder];
+    saveState();
+    render();
+    return;
+  }
+  const folder = event.target.closest("[data-folder-company]");
+  if (folder) {
+    selectCompany(folder.dataset.folderCompany);
+  }
+});
 document.querySelectorAll("[data-rail-view]").forEach((button) => {
   button.addEventListener("click", () => {
     state.railView = button.dataset.railView;
@@ -1076,25 +1178,6 @@ document.querySelectorAll("[data-rail-view]").forEach((button) => {
   });
 });
 els.noteStream.addEventListener("click", (event) => {
-  const back = event.target.closest("[data-folder-back]");
-  if (back) {
-    state.folderPath = [];
-    saveState();
-    render();
-    return;
-  }
-  const openFolder = event.target.closest("[data-open-folder]");
-  if (openFolder) {
-    state.folderPath = [openFolder.dataset.openFolder];
-    saveState();
-    render();
-    return;
-  }
-  const folder = event.target.closest("[data-folder-company]");
-  if (folder) {
-    selectCompany(folder.dataset.folderCompany);
-    return;
-  }
   const button = event.target.closest("[data-item-id]");
   if (!button) return;
   state.activeItemId = button.dataset.itemId;
