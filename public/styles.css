@@ -515,8 +515,248 @@ body.folders-mode .hero-card,
 body.folders-mode .workflow-card,
 body.folders-mode .pm-board,
 body.folders-mode .market-card,
-body.folders-mode .agent-card {
+body.folders-mode .agent-card,
+body.company-mode .hero-card,
+body.company-mode .workflow-card,
+body.company-mode .pm-board,
+body.company-mode .market-card,
+body.company-mode .agent-card {
   display: none;
+}
+
+body.folders-mode .company-workspace {
+  display: none;
+}
+
+.company-workspace {
+  display: grid;
+  gap: 12px;
+}
+
+.company-hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.company-path {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.company-hero h1 {
+  color: #eee8df;
+  font-size: 28px;
+  line-height: 1;
+  margin: 0;
+}
+
+.company-tags {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.company-tags span,
+.company-tags strong,
+.company-actions button {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #12100e;
+  color: #ded8d1;
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.company-tags span {
+  border-color: #145f83;
+  color: #8dddff;
+}
+
+.company-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.company-actions button:nth-child(2) {
+  border-color: #145f83;
+  color: #8dddff;
+}
+
+.company-jump {
+  width: min(360px, 100%);
+}
+
+.company-jump span {
+  display: none;
+}
+
+.company-jump input {
+  height: 42px;
+}
+
+.company-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.company-metrics article {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #090908;
+  min-height: 62px;
+  padding: 10px 12px;
+}
+
+.company-metrics span,
+.company-metrics em {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.company-metrics strong {
+  display: block;
+  color: #eee8df;
+  font-size: 17px;
+  margin: 4px 0;
+}
+
+.workspace-tabs {
+  display: flex;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #090908;
+  padding: 7px;
+  overflow-x: auto;
+}
+
+.workspace-tabs button {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  min-height: 30px;
+  padding: 0 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.workspace-tabs button.active {
+  background: #2d2925;
+  color: #eee8df;
+}
+
+.company-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 0.38fr);
+  gap: 12px;
+}
+
+.stock-panel,
+.viewpoint-panel,
+.company-source-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #090908;
+  padding: 14px;
+}
+
+.price-line {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.price-line strong {
+  color: #fff;
+  font-size: 30px;
+}
+
+.price-line em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.stock-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.stock-kpis span {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 10px;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: end;
+  gap: 3px;
+  height: 260px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  padding: 18px;
+}
+
+.chart-bars span {
+  flex: 1;
+  min-width: 3px;
+  opacity: 0.82;
+}
+
+.upbar {
+  background: #16a05d;
+}
+
+.downbar {
+  background: #b43333;
+}
+
+.viewpoint-panel textarea {
+  min-height: 110px;
+  margin: 10px 0;
+}
+
+.view-stream {
+  display: grid;
+  gap: 8px;
+}
+
+.view-stream button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #12100e;
+  color: #ddd8d1;
+  padding: 10px;
+  text-align: left;
+}
+
+.view-stream strong,
+.view-stream span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.view-stream span,
+.company-source-card p {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .folder-board {

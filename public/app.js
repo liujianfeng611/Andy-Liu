@@ -93,6 +93,7 @@ const els = {
   impactMatrix: document.querySelector("#impactMatrix"),
   researchQueue: document.querySelector("#researchQueue"),
   folderBoard: document.querySelector("#folderBoard"),
+  companyWorkspace: document.querySelector("#companyWorkspace"),
   folderUploadInput: document.querySelector("#folderUploadInput"),
   regionalMarkets: document.querySelector("#regionalMarkets"),
   assetMarkets: document.querySelector("#assetMarkets"),
@@ -604,6 +605,118 @@ function renderFolderBoard() {
   `;
 }
 
+function pseudoPrice(company) {
+  const seed = String(company.ticker || company.name || "PM").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const price = (80 + (seed % 420) + ((seed % 97) / 100)).toFixed(2);
+  const change = (((seed % 69) - 30) / 3).toFixed(2);
+  return { price, change };
+}
+
+function renderMiniChart(company) {
+  const seed = String(company.ticker || company.name || "chart").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return Array.from({ length: 52 }, (_, index) => {
+    const wave = Math.sin((index + seed) / 5) * 22 + Math.cos((index + seed) / 9) * 12;
+    const height = Math.max(18, Math.min(92, 48 + wave + ((index * seed) % 13)));
+    const up = (index + seed) % 3 !== 0;
+    return `<span class="${up ? "upbar" : "downbar"}" style="height:${height}%"></span>`;
+  }).join("");
+}
+
+function renderCompanyWorkspace() {
+  const company = activeCompany();
+  const rows = activeItems();
+  const localDocs = companyCloudItems(company.id);
+  const evidence = rows.filter((item) => isVisibleMaterial(item)).length;
+  const price = pseudoPrice(company);
+  const industry = inferIndustry(company);
+  const viewItems = rows.slice(0, 4);
+  const selected = selectedItem();
+  const selectedSummary = selected ? readableText(selected.summary || selected.sourceText || selected.title) : "暂无材料";
+
+  els.companyWorkspace.hidden = state.railView === "folders";
+  document.body.classList.toggle("company-mode", state.railView !== "folders");
+  if (state.railView === "folders") {
+    els.companyWorkspace.innerHTML = "";
+    return;
+  }
+
+  els.companyWorkspace.innerHTML = `
+    <header class="company-hero">
+      <div>
+        <div class="company-path">Home › ${escapeHtml(industry)} › ${escapeHtml(company.ticker || company.name)}</div>
+        <h1>${escapeHtml(company.name || company.ticker)}</h1>
+        <div class="company-tags">
+          <span>${escapeHtml(company.ticker || "Ticker")} · 标签</span>
+          <strong>${evidence} 条材料</strong>
+        </div>
+      </div>
+      <div class="company-actions">
+        <button data-open-material type="button">添加材料</button>
+        <button data-workspace-refresh type="button">刷新公开信息</button>
+        <button data-open-folder-for-company="${escapeHtml(company.id)}" type="button">普通文件夹</button>
+      </div>
+    </header>
+
+    <label class="company-jump">
+      <span>跳转公司 / ticker</span>
+      <input id="companyJumpInput" placeholder="输入 ticker 或公司名" />
+    </label>
+
+    <section class="company-metrics">
+      <article><span>股价</span><strong>${price.price}</strong><em class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</em></article>
+      <article><span>模型</span><strong>${escapeHtml(company.name?.split(" ")[0] || company.ticker || "Company")}</strong><em>${escapeHtml(industry)}</em></article>
+      <article><span>证据</span><strong>${evidence} 条</strong><em>${localDocs.length} 份云端资料</em></article>
+      <article><span>研究状态</span><strong>100/100</strong><em>可以进入深研</em></article>
+    </section>
+
+    <nav class="workspace-tabs">
+      <button class="active">主页</button>
+      <button>时间线</button>
+      <button>笔记</button>
+      <button>模型</button>
+      <button>Thesis</button>
+      <button>操作</button>
+      <button>问题清单</button>
+      <button>深研</button>
+    </nav>
+
+    <section class="company-grid">
+      <article class="stock-panel">
+        <div class="panel-head"><strong>股价图</strong><span>${escapeHtml(company.ticker || "")}</span></div>
+        <div class="price-line">
+          <strong>${price.price}</strong>
+          <span class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</span>
+          <em>${new Date().toLocaleDateString("zh-CN")}</em>
+        </div>
+        <div class="stock-kpis">
+          <span>区间涨跌 <strong class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</strong></span>
+          <span>50日均线 <strong class="up">+14.4</strong></span>
+          <span>200日均线 <strong class="down">-55.6</strong></span>
+        </div>
+        <div class="chart-bars">${renderMiniChart(company)}</div>
+      </article>
+
+      <aside class="viewpoint-panel">
+        <div class="panel-head"><strong>我的观点</strong><span>${viewItems.length} 条</span></div>
+        <textarea placeholder="我的判断、核心变量、下注条件、反证...">${escapeHtml(company.notes || "")}</textarea>
+        <div class="view-stream">
+          ${viewItems.map((item) => `
+            <button data-item-id="${escapeHtml(item.id)}" type="button">
+              <strong>${escapeHtml(readableText(item.title))}</strong>
+              <span>${escapeHtml(item.source || item.type)} · ${formatTime(item.publishedAt || item.createdAt)}</span>
+            </button>
+          `).join("") || '<div class="empty-list">暂无观点流</div>'}
+        </div>
+      </aside>
+    </section>
+
+    <section class="company-source-card">
+      <div class="panel-head"><strong>当前材料</strong><span>${selected ? escapeHtml(selected.source || selected.type) : "无"}</span></div>
+      <p>${escapeHtml(selectedSummary)}</p>
+    </section>
+  `;
+}
+
 function renderIntakeQueue() {
   const counts = {
     open: state.items.filter((item) => item.type === "open").length,
@@ -868,6 +981,7 @@ function render() {
   renderIntakeQueue();
   renderNotes();
   renderFolderBoard();
+  renderCompanyWorkspace();
   renderBrief();
   renderWorkflow();
   renderPmBoard();
@@ -1311,6 +1425,24 @@ document.addEventListener("click", (event) => {
   if (uploadFolder) {
     els.folderUploadInput.dataset.folderId = uploadFolder.dataset.uploadFolder;
     els.folderUploadInput.click();
+    return;
+  }
+  const refresh = event.target.closest("[data-workspace-refresh]");
+  if (refresh) {
+    refreshOpenInfo();
+    return;
+  }
+  const openMaterial = event.target.closest("[data-open-material]");
+  if (openMaterial) {
+    createMaterial();
+    return;
+  }
+  const openCompanyFolder = event.target.closest("[data-open-folder-for-company]");
+  if (openCompanyFolder) {
+    state.railView = "folders";
+    state.folderPath = [inferIndustry(activeCompany())];
+    saveState();
+    render();
   }
 });
 document.querySelectorAll("[data-rail-view]").forEach((button) => {
