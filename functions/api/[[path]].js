@@ -50,6 +50,14 @@ function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function cleanHtmlText(value) {
+  return cleanText(
+    decodeXml(value)
+      .replace(/<[^>]+>/g, " ")
+      .replaceAll("\u00a0", " ")
+  );
+}
+
 function hasSupabase(env) {
   return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
 }
@@ -261,11 +269,11 @@ async function getOpenWeb(url) {
       return json({
         articles: items.slice(0, 25).map((item) => ({
           id: tagValue(item, "guid") || tagValue(item, "link") || tagValue(item, "title"),
-          title: tagValue(item, "title"),
+          title: cleanHtmlText(tagValue(item, "title")),
           source: tagValue(item, "source") || "Google News",
           url: tagValue(item, "link"),
           publishedAt: tagValue(item, "pubDate"),
-          summary: tagValue(item, "description").replace(/<[^>]+>/g, " "),
+          summary: cleanHtmlText(tagValue(item, "description")),
           language: "en",
           sentiment: null
         })),

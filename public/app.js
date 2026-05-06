@@ -169,6 +169,15 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function readableText(value) {
+  const text = String(value || "");
+  const doc = new DOMParser().parseFromString(text, "text/html");
+  return (doc.body.textContent || text)
+    .replaceAll("\u00a0", " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function api(path, options = {}) {
   const response = await fetch(`/api/${path}`, {
     ...options,
@@ -238,7 +247,7 @@ function activeItems() {
 }
 
 function materialSource(item) {
-  return item?.sourceText || item?.rawText || item?.summary || "";
+  return item?.sourceText || item?.rawText || readableText(item?.summary) || "";
 }
 
 function materialView(item) {
@@ -273,7 +282,7 @@ function filteredItems() {
       if (!query) return true;
       const haystack = [
         item.title,
-        item.summary,
+        readableText(item.summary),
         materialSource(item),
         materialView(item),
         item.source,
@@ -336,7 +345,7 @@ function renderNotes() {
     return `
     <article class="note-item ${item.id === selectedId ? "active" : ""}">
       <button class="note-select" data-item-id="${escapeHtml(item.id)}" type="button">
-      <div class="note-title">${escapeHtml(item.title)}</div>
+      <div class="note-title">${escapeHtml(readableText(item.title))}</div>
       <div class="note-meta">
         <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
         <span class="tag">${escapeHtml(item.source || item.form || "OPEN")}</span>
@@ -380,7 +389,7 @@ function briefLine(item, index) {
       <span class="source-chip">${source}</span>
       <div class="brief-copy">
         <strong>${escapeHtml(source)}</strong>
-        <p>${escapeHtml(side)}：${escapeHtml(item.summary || item.title)}</p>
+        <p>${escapeHtml(side)}：${escapeHtml(readableText(item.summary || item.title))}</p>
         ${link ? `<button class="inline-source-link" data-open-url="${escapeHtml(link)}" type="button">打开原文</button>` : ""}
       </div>
     </li>
@@ -523,7 +532,7 @@ function renderEditor() {
   els.selectedMaterialMeta.textContent = `${item.source || item.form || item.type} · ${formatTime(item.publishedAt || item.createdAt)} · ${activeCompany().ticker || activeCompany().name}`;
   els.openMaterialUrlBtn.hidden = !link;
   els.openMaterialUrlBtn.dataset.openUrl = link;
-  els.materialTitleInput.value = item.title || "";
+  els.materialTitleInput.value = readableText(item.title) || "";
   els.materialFolderSelect.value = item.folderId || (item.companyId ? "company" : "inbox");
   els.materialTypeSelect.value = item.type || "local";
   els.materialTagsInput.value = materialTags(item).join(", ");
