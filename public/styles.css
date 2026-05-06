@@ -296,7 +296,7 @@ button {
 
 .cloud-folder {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -309,9 +309,19 @@ button {
   text-align: left;
 }
 
+.cloud-folder.directory {
+  background: #120f0d;
+}
+
 .cloud-folder.active {
   border-color: #145f83;
   background: #0d2836;
+}
+
+.folder-icon {
+  color: #d2b45a;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .folder-main,
@@ -345,6 +355,38 @@ button {
   font-size: 18px;
   font-style: normal;
   font-weight: 900;
+}
+
+.folder-breadcrumb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: #e7e1da;
+  margin-bottom: 10px;
+  padding: 0 0 10px;
+  text-align: left;
+}
+
+.folder-breadcrumb strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-breadcrumb span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.folder-breadcrumb.clickable:hover span {
+  color: #8dddff;
 }
 
 .source-link {

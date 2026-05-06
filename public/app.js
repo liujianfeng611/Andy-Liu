@@ -6,6 +6,7 @@ const defaultState = {
   searchQuery: "",
   editorTab: "source",
   railView: "notes",
+  folderPath: [],
   companies: [
     { id: "amzn", name: "Amazon.com Inc.", ticker: "AMZN", cik: "0001018724", topics: ["AI", "AWS", "retail margin", "agent commerce"], notes: "" },
     { id: "msft", name: "Microsoft Corporation", ticker: "MSFT", cik: "0000789019", topics: ["Azure", "Copilot", "OpenAI", "enterprise demand"], notes: "" },
@@ -386,11 +387,46 @@ function renderNotes() {
 }
 
 function renderCloudFolders() {
-  const rows = state.companies.map((company) => {
+  const path = Array.isArray(state.folderPath) ? state.folderPath : [];
+  const selectedIndustry = path[0] || "";
+
+  if (!selectedIndustry) {
+    const groups = state.companies.reduce((acc, company) => {
+      const industry = inferIndustry(company);
+      if (!acc.has(industry)) acc.set(industry, []);
+      acc.get(industry).push(company);
+      return acc;
+    }, new Map());
+    const rows = [...groups.entries()].map(([industry, companies]) => {
+      const fileCount = companies.reduce((sum, company) => sum + companyCloudItems(company.id).length, 0);
+      return `
+        <button class="cloud-folder directory" data-open-folder="${escapeHtml(industry)}" type="button">
+          <div class="folder-icon">▰</div>
+          <div class="folder-main">
+            <strong>${escapeHtml(industry)}</strong>
+            <span>${companies.length} 家公司 · ${fileCount} 份资料</span>
+          </div>
+          <div class="folder-meta">
+            <em>${fileCount}</em>
+            <span>打开</span>
+          </div>
+        </button>
+      `;
+    });
+    els.noteStream.innerHTML = `
+      <div class="folder-breadcrumb"><strong>云端文件夹</strong><span>按行业分类</span></div>
+      ${rows.join("") || `<div class="empty-list">还没有分类文件夹。先在右侧投资组合雷达添加或导入公司。</div>`}
+    `;
+    return;
+  }
+
+  const companies = state.companies.filter((company) => inferIndustry(company) === selectedIndustry);
+  const rows = companies.map((company) => {
     const cloudItems = companyCloudItems(company.id);
     const latest = cloudItems[0];
     return `
       <button class="cloud-folder ${company.id === state.activeCompanyId ? "active" : ""}" data-folder-company="${escapeHtml(company.id)}" type="button">
+        <div class="folder-icon">▱</div>
         <div class="folder-main">
           <strong>${escapeHtml(company.ticker || company.name)}</strong>
           <span>${escapeHtml(company.name || company.ticker)}</span>
@@ -403,7 +439,13 @@ function renderCloudFolders() {
     `;
   });
 
-  els.noteStream.innerHTML = rows.join("") || `<div class="empty-list">还没有公司文件夹。先在右侧投资组合雷达添加或导入公司。</div>`;
+  els.noteStream.innerHTML = `
+    <button class="folder-breadcrumb clickable" data-folder-back type="button">
+      <strong>云端文件夹 / ${escapeHtml(selectedIndustry)}</strong>
+      <span>← 返回分类</span>
+    </button>
+    ${rows.join("") || `<div class="empty-list">${escapeHtml(selectedIndustry)} 下面还没有公司文件夹。</div>`}
+  `;
 }
 
 function renderIntakeQueue() {
@@ -1028,11 +1070,26 @@ document.querySelectorAll("[data-rail-view]").forEach((button) => {
   button.addEventListener("click", () => {
     state.railView = button.dataset.railView;
     state.searchQuery = "";
+    if (state.railView === "folders") state.folderPath = [];
     saveState();
     render();
   });
 });
 els.noteStream.addEventListener("click", (event) => {
+  const back = event.target.closest("[data-folder-back]");
+  if (back) {
+    state.folderPath = [];
+    saveState();
+    render();
+    return;
+  }
+  const openFolder = event.target.closest("[data-open-folder]");
+  if (openFolder) {
+    state.folderPath = [openFolder.dataset.openFolder];
+    saveState();
+    render();
+    return;
+  }
   const folder = event.target.closest("[data-folder-company]");
   if (folder) {
     selectCompany(folder.dataset.folderCompany);
