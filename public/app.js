@@ -78,6 +78,8 @@ let backendStatus = "local";
 
 const els = {
   noteStream: document.querySelector("#noteStream"),
+  queueTotal: document.querySelector("#queueTotal"),
+  intakeQueue: document.querySelector("#intakeQueue"),
   briefList: document.querySelector("#briefList"),
   workflowGrid: document.querySelector("#workflowGrid"),
   impactMatrix: document.querySelector("#impactMatrix"),
@@ -258,6 +260,28 @@ function renderNotes() {
   `).join("");
 }
 
+function renderIntakeQueue() {
+  const counts = {
+    open: state.items.filter((item) => item.type === "open").length,
+    filing: state.items.filter((item) => item.type === "filing").length,
+    local: state.items.filter((item) => item.type === "local").length
+  };
+  const queue = [
+    ["公开互联网", counts.open, "新闻、公告、网页更新"],
+    ["订阅/付费资料", counts.filing, "研报、纪要、数据库导出"],
+    ["本地文件", counts.local, "PDF、表格、会议记录"]
+  ];
+
+  els.queueTotal.textContent = String(state.items.length);
+  els.intakeQueue.innerHTML = queue.map(([label, count, detail]) => `
+    <div class="intake-item">
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(detail)}</span>
+      <em>${count}</em>
+    </div>
+  `).join("");
+}
+
 function briefLine(item, index) {
   const side = index === 0 ? "多头证据" : index === 1 ? "空头信号" : index === 2 ? "基本面" : "待验证";
   const source = item.type === "filing" ? "sec agent" : item.type === "local" ? "local analyst" : "daily analyst";
@@ -385,6 +409,7 @@ function renderEditor() {
 }
 
 function render() {
+  renderIntakeQueue();
   renderNotes();
   renderBrief();
   renderWorkflow();
@@ -461,6 +486,39 @@ function updateActiveCompanyFromForm() {
   persistCompany(company);
 }
 
+function saveResearchNote() {
+  const company = activeCompany();
+  const note = els.noteInput.value.trim();
+  company.notes = note;
+
+  let noteItem = null;
+  if (note) {
+    const now = new Date().toISOString();
+    const id = `${company.id}-pm-research-note`;
+    const existing = state.items.find((item) => item.id === id);
+    noteItem = {
+      id,
+      companyId: company.id,
+      type: "local",
+      title: `${company.ticker || company.name} 研究笔记`,
+      source: "PM NOTE",
+      createdAt: existing?.createdAt || now,
+      publishedAt: now,
+      summary: note.replace(/\s+/g, " ").slice(0, 280)
+    };
+    if (existing) {
+      Object.assign(existing, noteItem);
+    } else {
+      state.items.unshift(noteItem);
+    }
+  }
+
+  saveState();
+  render();
+  persistCompany(company);
+  if (noteItem) persistItems([noteItem]);
+}
+
 function addCompany() {
   const name = els.newCompanyName.value.trim();
   if (!name) return;
@@ -486,12 +544,7 @@ function addCompany() {
 els.refreshBtn.addEventListener("click", refreshOpenInfo);
 els.fileInput.addEventListener("change", (event) => importFiles(event.target.files));
 els.saveCompanyBtn.addEventListener("click", updateActiveCompanyFromForm);
-els.saveNoteBtn.addEventListener("click", () => {
-  const company = activeCompany();
-  company.notes = els.noteInput.value;
-  saveState();
-  persistCompany(company);
-});
+els.saveNoteBtn.addEventListener("click", saveResearchNote);
 els.addCompanyBtn.addEventListener("click", () => els.companyDialog.showModal());
 els.confirmAddCompany.addEventListener("click", addCompany);
 els.askForm.addEventListener("submit", (event) => {

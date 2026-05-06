@@ -39,7 +39,7 @@ button {
 
 .terminal-shell {
   display: grid;
-  grid-template-columns: clamp(300px, 21vw, 432px) minmax(0, 1fr) 0;
+  grid-template-columns: clamp(300px, 21vw, 432px) minmax(0, 1fr) clamp(300px, 18vw, 348px);
   min-height: 100vh;
   background: var(--bg);
 }
@@ -149,6 +149,66 @@ button {
 
 .filter-button span:first-child {
   color: #d2cbc3;
+}
+
+.intake-panel {
+  margin: 0 18px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #120f0e;
+  padding: 12px;
+}
+
+.side-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #d8d1ca;
+  font-size: 13px;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.side-title span:last-child {
+  color: var(--yellow);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.intake-queue {
+  display: grid;
+  gap: 8px;
+}
+
+.intake-item {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  min-height: 58px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: #090908;
+  padding: 10px 42px 10px 10px;
+}
+
+.intake-item strong {
+  color: #eee8df;
+  font-size: 13px;
+}
+
+.intake-item span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.intake-item em {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  color: var(--green);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-style: normal;
+  font-weight: 900;
 }
 
 .note-stream {
@@ -674,23 +734,20 @@ button {
 }
 
 .right-drawer {
-  position: fixed;
-  right: 18px;
-  top: 64px;
-  width: 318px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: auto;
   display: grid;
+  align-content: start;
   gap: 12px;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(18px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-body:has(.main-stage:hover) .right-drawer,
-.right-drawer:hover {
+  border-left: 1px solid var(--line-soft);
+  background: #100e0c;
+  padding: 64px 14px 18px;
+  overflow: auto;
   opacity: 1;
   pointer-events: auto;
-  transform: translateX(0);
+  transform: none;
 }
 
 .mini-card {
@@ -837,7 +894,7 @@ menu {
 
 @media (max-width: 1380px) {
   .terminal-shell {
-    grid-template-columns: 360px minmax(0, 1fr) 0;
+    grid-template-columns: 340px minmax(0, 1fr) 300px;
   }
 
 }
@@ -872,6 +929,14 @@ menu {
 
   .pm-board {
     grid-template-columns: 1fr;
+  }
+
+  .right-drawer {
+    position: relative;
+    height: auto;
+    border-left: 0;
+    border-top: 1px solid var(--line-soft);
+    padding: 16px;
   }
 }
 
