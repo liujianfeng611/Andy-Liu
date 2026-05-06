@@ -294,6 +294,59 @@ button {
   text-align: center;
 }
 
+.cloud-folder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #090908;
+  color: var(--text);
+  margin-bottom: 9px;
+  padding: 12px;
+  text-align: left;
+}
+
+.cloud-folder.active {
+  border-color: #145f83;
+  background: #0d2836;
+}
+
+.folder-main,
+.folder-meta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.folder-main strong {
+  color: #eee8df;
+  font-size: 14px;
+}
+
+.folder-main span,
+.folder-meta span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-meta {
+  justify-items: end;
+}
+
+.folder-meta em {
+  color: var(--green);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 900;
+}
+
 .source-link {
   border: 0;
   background: transparent;

@@ -5,6 +5,7 @@ const defaultState = {
   activeItemId: "amzn-Amazon Launches Supply Chain Service for Sellers",
   searchQuery: "",
   editorTab: "source",
+  railView: "notes",
   companies: [
     { id: "amzn", name: "Amazon.com Inc.", ticker: "AMZN", cik: "0001018724", topics: ["AI", "AWS", "retail margin", "agent commerce"], notes: "" },
     { id: "msft", name: "Microsoft Corporation", ticker: "MSFT", cik: "0000789019", topics: ["Azure", "Copilot", "OpenAI", "enterprise demand"], notes: "" },
@@ -310,6 +311,14 @@ function filteredItems() {
     .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
 }
 
+function companyCloudItems(companyId) {
+  return state.items
+    .filter(isVisibleMaterial)
+    .filter((item) => item.companyId === companyId)
+    .filter((item) => item.type === "local" || item.folderId || item.sourceText || item.viewText)
+    .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
+}
+
 function companyOpenNewsCount(companyId) {
   return state.items
     .filter(isVisibleMaterial)
@@ -343,6 +352,11 @@ function addItems(items) {
 }
 
 function renderNotes() {
+  if (state.railView === "folders") {
+    renderCloudFolders();
+    return;
+  }
+
   const rows = filteredItems().slice(0, 18);
   const selectedId = selectedItem()?.id;
   const company = activeCompany();
@@ -369,6 +383,27 @@ function renderNotes() {
     </article>
   `;
   }).join("") || `<div class="empty-list">${emptyText}</div>`;
+}
+
+function renderCloudFolders() {
+  const rows = state.companies.map((company) => {
+    const cloudItems = companyCloudItems(company.id);
+    const latest = cloudItems[0];
+    return `
+      <button class="cloud-folder ${company.id === state.activeCompanyId ? "active" : ""}" data-folder-company="${escapeHtml(company.id)}" type="button">
+        <div class="folder-main">
+          <strong>${escapeHtml(company.ticker || company.name)}</strong>
+          <span>${escapeHtml(company.name || company.ticker)}</span>
+        </div>
+        <div class="folder-meta">
+          <em>${cloudItems.length}</em>
+          <span>${latest ? formatTime(latest.publishedAt || latest.createdAt) : "空"}</span>
+        </div>
+      </button>
+    `;
+  });
+
+  els.noteStream.innerHTML = rows.join("") || `<div class="empty-list">还没有公司文件夹。先在右侧投资组合雷达添加或导入公司。</div>`;
 }
 
 function renderIntakeQueue() {
@@ -574,10 +609,17 @@ function renderCompanies() {
   });
 }
 
+function renderRailTabs() {
+  document.querySelectorAll("[data-rail-view]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.railView === state.railView);
+  });
+}
+
 function selectCompany(companyId) {
   state.activeCompanyId = companyId;
   state.activeItemId = "";
   state.searchQuery = "";
+  state.railView = "notes";
   saveState();
   render();
   maybeAutoRefreshCompany(companyId);
@@ -624,6 +666,7 @@ function renderEditor() {
 }
 
 function render() {
+  renderRailTabs();
   renderIntakeQueue();
   renderNotes();
   renderBrief();
@@ -689,24 +732,30 @@ async function refreshOpenInfo(options = {}) {
 async function importFiles(files) {
   const company = activeCompany();
   const imported = await Promise.all([...files].map(async (file) => {
-    const text = await file.text();
+    let text = "";
+    try {
+      text = await file.text();
+    } catch {
+      text = "";
+    }
     const summary = text.replace(/\s+/g, " ").trim().slice(0, 280);
     return {
       id: `${company.id}-${file.name}-${file.lastModified}`,
       companyId: company.id,
       type: "local",
-      folderId: "inbox",
-      tags: ["导入"],
+      folderId: "cloud",
+      tags: ["云端文件", "导入"],
       title: file.name,
       source: company.ticker || "LOCAL",
-      sourceText: text,
+      sourceText: text || `文件已上传到 ${company.ticker || company.name} 云端文件夹。暂不支持直接解析此文件类型。`,
       viewText: "",
       createdAt: new Date(file.lastModified || Date.now()).toISOString(),
       publishedAt: new Date(file.lastModified || Date.now()).toISOString(),
-      summary: summary || "空文件"
+      summary: summary || `${file.name} 已上传到云端文件夹`
     };
   }));
   addItems(imported);
+  state.railView = "folders";
   els.fileInput.value = "";
 }
 
@@ -975,7 +1024,20 @@ document.addEventListener("click", (event) => {
   event.stopPropagation();
   openExternalUrl(url);
 });
+document.querySelectorAll("[data-rail-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.railView = button.dataset.railView;
+    state.searchQuery = "";
+    saveState();
+    render();
+  });
+});
 els.noteStream.addEventListener("click", (event) => {
+  const folder = event.target.closest("[data-folder-company]");
+  if (folder) {
+    selectCompany(folder.dataset.folderCompany);
+    return;
+  }
   const button = event.target.closest("[data-item-id]");
   if (!button) return;
   state.activeItemId = button.dataset.itemId;

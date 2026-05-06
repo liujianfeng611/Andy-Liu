@@ -18,10 +18,10 @@
         </header>
 
         <nav class="rail-tabs" aria-label="工作区导航">
-          <button class="active">笔记</button>
-          <button>团队</button>
-          <button>Daily</button>
-          <button>文件夹</button>
+          <button class="active" data-rail-view="notes" type="button">笔记</button>
+          <button data-rail-view="team" type="button">团队</button>
+          <button data-rail-view="daily" type="button">Daily</button>
+          <button data-rail-view="folders" type="button">文件夹</button>
         </nav>
 
         <button class="filter-button">
@@ -208,9 +208,9 @@
             <button id="newMaterialBtn" class="mini-button">新材料</button>
           </div>
           <label class="import-box">
-            <input id="fileInput" type="file" multiple accept=".txt,.md,.csv,.json,.html,.htm" />
-            <span>导入本地/订阅资料</span>
-            <small>研报、导出件、会议纪要</small>
+            <input id="fileInput" type="file" multiple accept=".txt,.md,.csv,.json,.html,.htm,.pdf,.xlsx,.xls,.docx" />
+            <span>上传到当前公司云端文件夹</span>
+            <small>文本/CSV/网页可读取；PDF/Excel 先保存为文件记录</small>
           </label>
           <textarea id="noteInput" placeholder="记录观点、待验证问题、仓位影响..."></textarea>
           <button id="saveNoteBtn" class="mini-button full">保存研究笔记</button>
