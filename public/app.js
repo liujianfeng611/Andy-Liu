@@ -253,6 +253,10 @@ function materialUrl(item) {
   return /^https?:\/\//i.test(url) ? url : "";
 }
 
+function isVisibleMaterial(item) {
+  return item?.title !== "公开信息刷新失败";
+}
+
 function selectedItem() {
   const visible = filteredItems();
   return visible.find((item) => item.id === state.activeItemId) || visible[0] || null;
@@ -262,6 +266,7 @@ function filteredItems() {
   const query = String(state.searchQuery || "").trim().toLowerCase();
   const activeId = activeCompany().id;
   return state.items
+    .filter(isVisibleMaterial)
     .filter((item) => item.companyId === activeId || !item.companyId)
     .filter((item) => {
       if (!query) return true;
@@ -308,6 +313,11 @@ function addItems(items) {
 function renderNotes() {
   const rows = filteredItems().slice(0, 18);
   const selectedId = selectedItem()?.id;
+  const company = activeCompany();
+  const companyLabel = escapeHtml(company.ticker || company.name);
+  const emptyText = state.searchQuery
+    ? `没有找到 ${companyLabel} 中匹配“${escapeHtml(state.searchQuery)}”的材料。切换公司会自动清空搜索。`
+    : `${companyLabel} 暂时没有可显示的新闻。点击顶部“刷新”拉取公开互联网和公告。`;
 
   els.noteStream.innerHTML = rows.map((item) => {
     const link = materialUrl(item);
@@ -323,7 +333,7 @@ function renderNotes() {
       ${link ? `<button class="note-link" data-open-url="${escapeHtml(link)}" type="button">原文</button>` : ""}
     </article>
   `;
-  }).join("") || `<div class="empty-list">没有找到匹配材料</div>`;
+  }).join("") || `<div class="empty-list">${emptyText}</div>`;
 }
 
 function renderIntakeQueue() {
@@ -461,6 +471,7 @@ function renderCompanies() {
     button.addEventListener("click", () => {
       state.activeCompanyId = button.dataset.company;
       state.activeItemId = "";
+      state.searchQuery = "";
       saveState();
       render();
     });
