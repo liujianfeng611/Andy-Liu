@@ -440,6 +440,10 @@ button {
   gap: 8px;
 }
 
+.right-drawer .drawer-title {
+  font-size: 14px;
+}
+
 .card-title {
   color: #e2ddd7;
   font-size: 15px;
@@ -850,8 +854,8 @@ button {
 .company-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .company-pill {
@@ -859,7 +863,8 @@ button {
   border-radius: 6px;
   background: #26221f;
   color: #cfc8c0;
-  padding: 8px 10px;
+  padding: 6px 8px;
+  font-size: 13px;
   font-weight: 800;
 }
 
