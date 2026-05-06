@@ -5,6 +5,7 @@ const defaultState = {
   activeItemId: "amzn-Amazon Launches Supply Chain Service for Sellers",
   searchQuery: "",
   editorTab: "source",
+  companyWorkspaceTab: "home",
   railView: "notes",
   folderPath: [],
   customFolders: [],
@@ -53,6 +54,19 @@ const workflowStages = [
     title: "加仓 / 减仓 / 对冲 / 观察",
     detail: "把判断沉淀为可复盘的投资动作，而不是只停留在阅读。"
   }
+];
+
+const companyWorkspaceTabs = [
+  ["home", "主页"],
+  ["timeline", "时间线"],
+  ["notes", "笔记"],
+  ["model", "模型"],
+  ["thesis", "Thesis"],
+  ["actions", "操作"],
+  ["committee", "投委会"],
+  ["questions", "问题清单"],
+  ["deep", "深研"],
+  ["continuous", "连续研究"]
 ];
 
 const regionalMarkets = [
@@ -622,73 +636,61 @@ function renderMiniChart(company) {
   }).join("");
 }
 
-function renderCompanyWorkspace() {
-  const company = activeCompany();
-  const rows = activeItems();
-  const localDocs = companyCloudItems(company.id);
-  const evidence = rows.filter((item) => isVisibleMaterial(item)).length;
-  const price = pseudoPrice(company);
-  const industry = inferIndustry(company);
-  const viewItems = rows.slice(0, 4);
-  const selected = selectedItem();
-  const selectedSummary = selected ? readableText(selected.summary || selected.sourceText || selected.title) : "暂无材料";
-  const peerCompanies = state.companies
-    .filter((row) => row.id !== company.id && inferIndustry(row) === industry)
-    .slice(0, 18);
-  const recentNotes = rows.slice(0, 12);
+function monthKey(item) {
+  const date = new Date(item.publishedAt || item.createdAt || Date.now());
+  if (Number.isNaN(date.getTime())) return "待定";
+  return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+}
 
-  els.companyWorkspace.hidden = state.railView === "folders";
-  document.body.classList.toggle("company-mode", state.railView !== "folders");
-  if (state.railView === "folders") {
-    els.companyWorkspace.innerHTML = "";
-    return;
-  }
+function compactDate(item) {
+  const date = new Date(item.publishedAt || item.createdAt || Date.now());
+  if (Number.isNaN(date.getTime())) return "待定";
+  return date.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
+}
 
-  els.companyWorkspace.innerHTML = `
-    <header class="company-hero">
-      <div>
-        <div class="company-path">Home › ${escapeHtml(industry)} › ${escapeHtml(company.ticker || company.name)}</div>
-        <h1>${escapeHtml(company.name || company.ticker)}</h1>
-        <div class="company-tags">
-          <span>${escapeHtml(company.ticker || "Ticker")} · 标签</span>
-          <strong>${evidence} 条材料</strong>
-        </div>
-      </div>
-      <div class="company-actions">
-        <button type="button">Ticker/模型</button>
-        <button type="button">批量识别Ticker</button>
-        <button type="button">AI伙伴</button>
-        <button type="button">上传模型</button>
-        <button data-open-material type="button">添加材料</button>
-        <button data-open-folder-for-company="${escapeHtml(company.id)}" type="button">普通文件夹</button>
-      </div>
-    </header>
+function materialTone(item, index = 0) {
+  const text = `${item.title || ""} ${item.summary || ""}`.toLowerCase();
+  if (/risk|miss|down|lawsuit|regulat|反证|风险|下调|竞争|放缓/.test(text)) return "反证 / 风险";
+  if (/margin|profit|cash|gross|利润|毛利|现金流/.test(text)) return "利润率 / 经营杠杆";
+  if (/price|arpu|monet|take rate|广告|变现|涨价/.test(text)) return "涨价 / 变现";
+  if (/launch|earnings|guidance|财报|发布|合同|指引/.test(text)) return "催化剂";
+  return index % 4 === 0 ? "需求 / 增长" : index % 4 === 1 ? "竞争 / 份额" : "需求 / 增长";
+}
 
-    <label class="company-jump">
-      <span>跳转公司 / ticker</span>
-      <input id="companyJumpInput" placeholder="输入 ticker 或公司名" />
-    </label>
+function groupByMonth(rows) {
+  return rows.reduce((groups, item) => {
+    const key = monthKey(item);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+    return groups;
+  }, {});
+}
 
-    <section class="company-metrics">
-      <article><span>股价</span><strong>${price.price}</strong><em class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</em></article>
-      <article><span>模型</span><strong>${escapeHtml(company.name?.split(" ")[0] || company.ticker || "Company")}</strong><em>${escapeHtml(industry)}</em></article>
-      <article><span>证据</span><strong>${evidence} 条</strong><em>${localDocs.length} 份云端资料</em></article>
-      <article><span>研究状态</span><strong>100/100</strong><em>可以进入深研</em></article>
-    </section>
+function renderWorkspaceTabs(activeTab) {
+  return companyWorkspaceTabs.map(([id, label]) => `
+    <button class="${activeTab === id ? "active" : ""}" data-company-tab="${id}" type="button">${label}</button>
+  `).join("");
+}
 
-    <nav class="workspace-tabs">
-      <button class="active">主页</button>
-      <button>时间线</button>
-      <button>笔记</button>
-      <button>模型</button>
-      <button>Thesis</button>
-      <button>操作</button>
-      <button>问题清单</button>
-      <button>深研</button>
-      <button>连续研究</button>
-      <button data-workspace-refresh type="button">换公司/对比</button>
-    </nav>
+function evidenceBuckets(rows) {
+  const labels = ["需求 / 增长", "涨价 / 变现", "利润率 / 经营杠杆", "竞争 / 份额", "反证 / 风险", "催化剂"];
+  return labels.map((label) => ({
+    label,
+    detail: {
+      "需求 / 增长": "需求拐点、用户增长、订单、预算、渗透率",
+      "涨价 / 变现": "价格、ARPU、take rate、广告加载率、商业化",
+      "利润率 / 经营杠杆": "毛利率、费用率、成本、效率、现金流",
+      "竞争 / 份额": "竞争格局、份额、护城河、替代风险",
+      "反证 / 风险": "下调、放缓、miss、监管、价格松动",
+      "催化剂": "财报、发布、合同、回购、指引、事件窗口"
+    }[label],
+    rows: rows.filter((item, index) => materialTone(item, index) === label).slice(0, 3)
+  }));
+}
 
+function renderCompanyHome(ctx) {
+  const { company, rows, price, viewItems, selected, selectedSummary, peerCompanies, recentNotes } = ctx;
+  return `
     <section class="company-grid">
       <article class="stock-panel">
         <div class="panel-head"><strong>股价图</strong><span>${escapeHtml(company.ticker || "")}</span></div>
@@ -708,8 +710,8 @@ function renderCompanyWorkspace() {
       <aside class="viewpoint-panel">
         <div class="panel-head"><strong>我的观点</strong><span>${viewItems.length} 条</span></div>
         <div class="view-actions">
-          <button type="button">投研框架</button>
-          <button type="button">今日记录</button>
+          <button data-company-tab="thesis" type="button">投研框架</button>
+          <button data-company-tab="notes" type="button">今日记录</button>
           <button type="button">记入观点流</button>
         </div>
         <textarea placeholder="我的判断、核心变量、下注条件、反证...">${escapeHtml(company.notes || "")}</textarea>
@@ -747,6 +749,299 @@ function renderCompanyWorkspace() {
         `).join("")}
       </div>
     </section>
+  `;
+}
+
+function renderCompanyTimeline(ctx) {
+  const groups = Object.entries(groupByMonth(ctx.rows));
+  return `
+    <section class="workspace-panel narrative-panel">
+      <div class="panel-head"><strong>公司叙事时间线</strong><span>NARRATIVE ARC</span></div>
+      <div class="narrative-head">
+        <h2>${groups.at(-1)?.[0] || "近期"} → ${groups[0]?.[0] || "现在"}</h2>
+        <button type="button">AI 串公司故事</button>
+      </div>
+      <div class="narrative-filters">
+        <span>全部 ${ctx.rows.length}</span><span>有想法 ${ctx.viewItems.length}</span><span>转折 ${Math.min(2, groups.length)}</span><span>展开当前</span>
+      </div>
+      <div class="turning-strip">POTENTIAL TURNING POINTS · ${groups.slice(0, 2).map(([month]) => `${month} 叙事出现变化`).join(" · ") || "等待更多材料"}</div>
+      <div class="timeline-list">
+        ${groups.map(([month, items], index) => `
+          <article class="timeline-month ${index === 0 ? "active" : ""}">
+            <div>
+              <strong>${escapeHtml(month)}</strong>
+              <span>${escapeHtml(materialTone(items[0], index))}：${escapeHtml(readableText(items[0]?.title || "新增材料"))}</span>
+              <p>这段主要围绕 ${escapeHtml(materialTone(items[0], index))}，共 ${items.length} 条材料；需要判断是否改变核心变量。</p>
+            </div>
+            <em>${items.length}</em>
+          </article>
+          ${items.slice(0, 4).map((item) => `
+            <button class="timeline-item" data-item-id="${escapeHtml(item.id)}" type="button">
+              <span>${compactDate(item)}</span>
+              <strong>${escapeHtml(readableText(item.title))}</strong>
+              <em>${escapeHtml(item.type === "open" ? "公开" : item.type)}</em>
+            </button>
+          `).join("")}
+        `).join("") || '<div class="empty-list">还没有可以串联的材料。</div>'}
+      </div>
+    </section>
+  `;
+}
+
+function renderCompanyNotes(ctx) {
+  return `
+    <section class="workspace-two">
+      <article class="workspace-panel">
+        <div class="panel-head"><strong>观点流</strong><span>${ctx.viewItems.length} 条</span></div>
+        <div class="note-accordion">
+          ${ctx.viewItems.map((item) => `
+            <button data-item-id="${escapeHtml(item.id)}" type="button">
+              <strong>${escapeHtml(readableText(item.title))}</strong>
+              <span>${formatTime(item.publishedAt || item.createdAt)} · ${escapeHtml(item.type)}</span>
+            </button>
+          `).join("") || '<div class="empty-list">暂无观点流。</div>'}
+        </div>
+      </article>
+      <article class="workspace-panel">
+        <div class="panel-head"><strong>公司材料流</strong><span>${ctx.rows.length}</span></div>
+        <div class="material-flow">
+          ${ctx.rows.slice(0, 18).map((item) => `
+            <button data-item-id="${escapeHtml(item.id)}" type="button">
+              <strong>${escapeHtml(readableText(item.title))}</strong>
+              <span>${escapeHtml(item.type)} · ${compactDate(item)}</span>
+              <p>${escapeHtml(readableText(item.summary || item.sourceText || "").slice(0, 180))}</p>
+            </button>
+          `).join("") || '<div class="empty-list">暂无公司材料。</div>'}
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderCompanyModel(ctx) {
+  const metrics = [
+    ["REVENUE", "676,855", "2031"],
+    ["REV YOY", "16.6%", "2031"],
+    ["GROSS MARGIN", "—", "latest"],
+    ["OP MARGIN", "—", "latest"],
+    ["NET INCOME", "—", "latest"]
+  ];
+  const rows = ["Revenue", "YoY", "Gross Profit", "GPM", "Operating Expense", "EBIT Margin", "Capex", "FCF"].map((label, index) => `
+    <tr><td>${label}</td><td>${(210 + index * 18).toLocaleString()}</td><td>${(245 + index * 21).toLocaleString()}</td><td>${(280 + index * 24).toLocaleString()}</td><td>${(322 + index * 26).toLocaleString()}</td><td>${index % 2 ? "15.6%" : "428,866"}</td></tr>
+  `).join("");
+  return `
+    <section class="workspace-panel">
+      <div class="panel-head"><strong>模型版本</strong><span>当前模型</span></div>
+      <div class="model-version-card">
+        <div><strong>${escapeHtml(ctx.company.name || ctx.company.ticker)} Model</strong><span>Sheet: ${escapeHtml(ctx.company.ticker || "Ticker")} · 文件: 上传你的 Excel 后替换</span></div>
+        <button type="button">上传新版本</button>
+        <button type="button">换模型</button>
+      </div>
+      <div class="model-layout">
+        <div class="model-match">
+          <strong>模型匹配</strong>
+          ${[100, 88, 72, 60].map((score, index) => `<span>${escapeHtml(ctx.company.name)} <em>${score}</em></span>`).join("")}
+        </div>
+        <div class="core-metrics">${metrics.map(([label, value, year]) => `<article><span>${label}</span><strong>${value}</strong><em>${year}</em></article>`).join("")}</div>
+      </div>
+      <div class="model-table-wrap">
+        <div class="panel-head"><strong>模型预览</strong><span>${escapeHtml(ctx.company.ticker || "")}</span></div>
+        <table class="model-table"><thead><tr><th>指标</th><th>2023</th><th>2024</th><th>2025</th><th>2026</th><th>2027E</th></tr></thead><tbody>${rows}</tbody></table>
+      </div>
+    </section>
+  `;
+}
+
+function renderCompanyThesis(ctx) {
+  const buckets = evidenceBuckets(ctx.rows);
+  return `
+    <section class="workspace-panel thesis-panel">
+      <div class="thesis-hero">
+        <span>DECISION MEMO</span>
+        <h2>进入深研</h2>
+        <p>证据、模型和股价位置开始形成组合，可以写成正式 thesis。</p>
+      </div>
+      <div class="thesis-grid">
+        <article><strong>Bull case 要成立</strong><p>增长继续兑现，利润率不被投入吞噬，核心业务的竞争优势没有被新技术削弱。</p></article>
+        <article><strong>Bear case / 反证</strong><p>材料中已有风险线索，需要逐条确认是否影响核心 thesis。</p></article>
+        <article><strong>必须跟踪的变量</strong><p>需求、价格、利润率、竞争、监管和下一次财报窗口。</p></article>
+      </div>
+      <div class="evidence-map">
+        ${buckets.map((bucket) => `
+          <article>
+            <strong>${escapeHtml(bucket.label)}</strong>
+            <span>${escapeHtml(bucket.detail)}</span>
+            <em>${bucket.rows.length}</em>
+            ${bucket.rows.slice(0, 2).map((item) => `<button data-item-id="${escapeHtml(item.id)}" type="button">${escapeHtml(readableText(item.title))}</button>`).join("")}
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderCompanyActions(ctx) {
+  const actions = [
+    ["前", "业绩前", "拿不拿过业绩 / position / risk reward"],
+    ["中", "业绩发生", "数字是否改变逻辑 / read-through / 新逻辑"],
+    ["后", "业绩后", "涨跌后追不追 / 加不加 / cover不cover"],
+    ["涨", "股价涨多了", "FOMO 管理 / 新 thesis / 追不追"],
+    ["跌", "股价跌多了", "恐慌管理 / 机会还是换逻辑 / cover"]
+  ];
+  return `
+    <section class="workspace-panel">
+      <div class="panel-head"><strong>操作纪律</strong><span>把交易经验变成当下动作</span></div>
+      <div class="discipline-strip"><span>材料 ${ctx.evidence}</span><span>想法 ${ctx.viewItems.length}</span><span>股价位置 42%</span><span>模型 自动判断</span></div>
+      <div class="action-list">
+        ${actions.map(([mark, title, detail]) => `
+          <button type="button"><strong>${mark}</strong><span>${title}</span><em>${detail}</em><small>未生成</small></button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderCompanyCommittee(ctx) {
+  return `
+    <section class="workspace-two">
+      <article class="workspace-panel committee-panel">
+        <div class="panel-head"><strong>投委会审问 ${escapeHtml(ctx.company.ticker || ctx.company.name)}</strong><span>GPT 5.5</span></div>
+        <p>先写你的当前判断。AI 会像投委会一样找漏洞：核心变量、市场分歧、反证条件、禁止动作和下一步验证。</p>
+        <textarea placeholder="例：我现在倾向继续跟踪/准备买/准备放弃。核心变量是... 市场可能低估... 最大反证是..."></textarea>
+        <button type="button">生成并写入观点</button>
+      </article>
+      <article class="workspace-panel">
+        <div class="panel-head"><strong>还没有投委会质询</strong><span>待生成</span></div>
+        <p>写下你的当前判断，然后生成一版红队质询和可执行结论。</p>
+      </article>
+    </section>
+  `;
+}
+
+function renderCompanyQuestions(ctx) {
+  const questions = [
+    "这个公司未来 6-12 个月最关键的验证变量是什么？",
+    "哪些公开信息会证明我的核心假设错了？",
+    "市场现在最可能误判的是需求、利润率还是估值？",
+    "下一次财报前必须补哪三份材料？"
+  ];
+  return `
+    <section class="workspace-panel">
+      <div class="panel-head"><strong>问题清单</strong><span>${questions.length} 个</span></div>
+      <div class="question-list">
+        ${questions.map((question, index) => `
+          <label><input type="checkbox" ${index === 0 ? "checked" : ""} /><span>${question}</span><em>${index === 0 ? "正在验证" : "待验证"}</em></label>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderCompanyDeep(ctx) {
+  return `
+    <section class="workspace-panel deep-panel">
+      <div class="panel-head"><strong>深研任务台</strong><span>把材料转成决策</span></div>
+      <div class="deep-grid">
+        <article><strong>1. 核心变量</strong><p>把 ${ctx.company.ticker || ctx.company.name} 的主线拆成 3 个可验证变量。</p></article>
+        <article><strong>2. 多空证据</strong><p>从 ${ctx.evidence} 条材料里提取支持、反证、待确认。</p></article>
+        <article><strong>3. 模型敏感性</strong><p>把收入、利润率、估值倍数做成 bull/base/bear。</p></article>
+        <article><strong>4. 行动建议</strong><p>输出加仓、减仓、对冲、观察的触发条件。</p></article>
+      </div>
+    </section>
+  `;
+}
+
+function renderCompanyContinuous(ctx) {
+  return `
+    <section class="workspace-panel">
+      <div class="panel-head"><strong>连续研究</strong><span>每日自动复盘</span></div>
+      <div class="continuous-grid">
+        <article><span>公开互联网</span><strong>${ctx.rows.filter((item) => item.type === "open").length}</strong><p>每天抓取公司新闻、公告和网页更新。</p></article>
+        <article><span>订阅/付费资料</span><strong>${ctx.rows.filter((item) => item.type === "filing").length}</strong><p>研报、纪要、数据库导出进入统一材料流。</p></article>
+        <article><span>本地/云端文件</span><strong>${ctx.localDocs.length}</strong><p>你上传的文件会和公开信息一起进入上下文。</p></article>
+      </div>
+    </section>
+  `;
+}
+
+function renderCompanyWorkspaceBody(tab, ctx) {
+  const map = {
+    home: renderCompanyHome,
+    timeline: renderCompanyTimeline,
+    notes: renderCompanyNotes,
+    model: renderCompanyModel,
+    thesis: renderCompanyThesis,
+    actions: renderCompanyActions,
+    committee: renderCompanyCommittee,
+    questions: renderCompanyQuestions,
+    deep: renderCompanyDeep,
+    continuous: renderCompanyContinuous
+  };
+  return (map[tab] || renderCompanyHome)(ctx);
+}
+
+function renderCompanyWorkspace() {
+  const company = activeCompany();
+  const rows = activeItems();
+  const localDocs = companyCloudItems(company.id);
+  const evidence = rows.filter((item) => isVisibleMaterial(item)).length;
+  const price = pseudoPrice(company);
+  const industry = inferIndustry(company);
+  const viewItems = rows.slice(0, 4);
+  const selected = selectedItem();
+  const selectedSummary = selected ? readableText(selected.summary || selected.sourceText || selected.title) : "暂无材料";
+  const activeTab = companyWorkspaceTabs.some(([id]) => id === state.companyWorkspaceTab) ? state.companyWorkspaceTab : "home";
+  const peerCompanies = state.companies
+    .filter((row) => row.id !== company.id && inferIndustry(row) === industry)
+    .slice(0, 18);
+  const recentNotes = rows.slice(0, 12);
+  const ctx = { company, rows, localDocs, evidence, price, industry, viewItems, selected, selectedSummary, peerCompanies, recentNotes };
+
+  els.companyWorkspace.hidden = state.railView === "folders";
+  document.body.classList.toggle("company-mode", state.railView !== "folders");
+  if (state.railView === "folders") {
+    els.companyWorkspace.innerHTML = "";
+    return;
+  }
+
+  els.companyWorkspace.innerHTML = `
+    <header class="company-hero">
+      <div>
+        <div class="company-path">Home › ${escapeHtml(industry)} › ${escapeHtml(company.ticker || company.name)}</div>
+        <h1>${escapeHtml(company.name || company.ticker)}</h1>
+        <div class="company-tags">
+          <span>${escapeHtml(company.ticker || "Ticker")} · 标签</span>
+          <strong>${evidence} 条材料</strong>
+        </div>
+      </div>
+      <div class="company-actions">
+        <button data-company-tab="model" type="button">Ticker/模型</button>
+        <button data-company-tab="model" type="button">批量识别Ticker</button>
+        <button data-company-tab="deep" type="button">AI伙伴</button>
+        <button data-company-tab="model" type="button">上传模型</button>
+        <button data-open-material type="button">添加材料</button>
+        <button data-open-folder-for-company="${escapeHtml(company.id)}" type="button">普通文件夹</button>
+      </div>
+    </header>
+
+    <label class="company-jump">
+      <span>跳转公司 / ticker</span>
+      <input id="companyJumpInput" placeholder="输入 ticker 或公司名" />
+    </label>
+
+    <section class="company-metrics">
+      <article><span>股价</span><strong>${price.price}</strong><em class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</em></article>
+      <article><span>模型</span><strong>${escapeHtml(company.name?.split(" ")[0] || company.ticker || "Company")}</strong><em>${escapeHtml(industry)}</em></article>
+      <article><span>证据</span><strong>${evidence} 条</strong><em>${localDocs.length} 份云端资料</em></article>
+      <article><span>研究状态</span><strong>100/100</strong><em>可以进入深研</em></article>
+    </section>
+
+    <nav class="workspace-tabs">
+      ${renderWorkspaceTabs(activeTab)}
+      <button data-workspace-refresh type="button">换公司/对比</button>
+    </nav>
+
+    ${renderCompanyWorkspaceBody(activeTab, ctx)}
   `;
 }
 
@@ -963,6 +1258,7 @@ function selectCompany(companyId) {
   state.activeCompanyId = companyId;
   state.activeItemId = "";
   state.searchQuery = "";
+  state.companyWorkspaceTab = "home";
   state.railView = "notes";
   saveState();
   render();
@@ -1421,6 +1717,13 @@ document.addEventListener("click", (event) => {
   openExternalUrl(url);
 });
 document.addEventListener("click", (event) => {
+  const companyTab = event.target.closest("[data-company-tab]");
+  if (companyTab) {
+    state.companyWorkspaceTab = companyTab.dataset.companyTab;
+    saveState();
+    render();
+    return;
+  }
   const back = event.target.closest("[data-folder-back]");
   if (back) {
     state.folderPath = [];
