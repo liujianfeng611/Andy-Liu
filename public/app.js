@@ -632,6 +632,10 @@ function renderCompanyWorkspace() {
   const viewItems = rows.slice(0, 4);
   const selected = selectedItem();
   const selectedSummary = selected ? readableText(selected.summary || selected.sourceText || selected.title) : "暂无材料";
+  const peerCompanies = state.companies
+    .filter((row) => row.id !== company.id && inferIndustry(row) === industry)
+    .slice(0, 18);
+  const recentNotes = rows.slice(0, 12);
 
   els.companyWorkspace.hidden = state.railView === "folders";
   document.body.classList.toggle("company-mode", state.railView !== "folders");
@@ -651,8 +655,11 @@ function renderCompanyWorkspace() {
         </div>
       </div>
       <div class="company-actions">
+        <button type="button">Ticker/模型</button>
+        <button type="button">批量识别Ticker</button>
+        <button type="button">AI伙伴</button>
+        <button type="button">上传模型</button>
         <button data-open-material type="button">添加材料</button>
-        <button data-workspace-refresh type="button">刷新公开信息</button>
         <button data-open-folder-for-company="${escapeHtml(company.id)}" type="button">普通文件夹</button>
       </div>
     </header>
@@ -678,6 +685,8 @@ function renderCompanyWorkspace() {
       <button>操作</button>
       <button>问题清单</button>
       <button>深研</button>
+      <button>连续研究</button>
+      <button data-workspace-refresh type="button">换公司/对比</button>
     </nav>
 
     <section class="company-grid">
@@ -698,6 +707,11 @@ function renderCompanyWorkspace() {
 
       <aside class="viewpoint-panel">
         <div class="panel-head"><strong>我的观点</strong><span>${viewItems.length} 条</span></div>
+        <div class="view-actions">
+          <button type="button">投研框架</button>
+          <button type="button">今日记录</button>
+          <button type="button">记入观点流</button>
+        </div>
         <textarea placeholder="我的判断、核心变量、下注条件、反证...">${escapeHtml(company.notes || "")}</textarea>
         <div class="view-stream">
           ${viewItems.map((item) => `
@@ -707,12 +721,31 @@ function renderCompanyWorkspace() {
             </button>
           `).join("") || '<div class="empty-list">暂无观点流</div>'}
         </div>
+        <section class="peer-section">
+          <div class="panel-head"><strong>同组公司</strong><span>${peerCompanies.length}</span></div>
+          <div class="peer-grid">
+            ${peerCompanies.map((row) => `
+              <button data-folder-company="${escapeHtml(row.id)}" type="button">
+                <strong>${escapeHtml(row.name || row.ticker)}</strong>
+                <span>${escapeHtml(row.ticker || "")}</span>
+              </button>
+            `).join("") || '<span class="folder-empty">暂无同组公司</span>'}
+          </div>
+        </section>
       </aside>
     </section>
 
     <section class="company-source-card">
       <div class="panel-head"><strong>当前材料</strong><span>${selected ? escapeHtml(selected.source || selected.type) : "无"}</span></div>
       <p>${escapeHtml(selectedSummary)}</p>
+      <div class="recent-note-list">
+        ${recentNotes.map((item) => `
+          <button data-item-id="${escapeHtml(item.id)}" type="button">
+            <span>${escapeHtml(readableText(item.title))}</span>
+            <em>${formatTime(item.publishedAt || item.createdAt)}</em>
+          </button>
+        `).join("")}
+      </div>
     </section>
   `;
 }
