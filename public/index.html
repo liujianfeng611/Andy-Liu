@@ -28,6 +28,10 @@
           <span>☷ 阅读筛选</span>
           <span>1000/1000⌄</span>
         </button>
+        <label class="search-box">
+          <span>搜索材料</span>
+          <input id="searchInput" type="search" placeholder="标题、Source、View、标签..." autocomplete="off" />
+        </label>
 
         <section class="intake-panel" aria-label="资料处理队列">
           <div class="side-title">
@@ -198,6 +202,7 @@
         <section class="mini-card">
           <div class="drawer-title">
             <strong>资料入口 / Context</strong>
+            <button id="newMaterialBtn" class="mini-button">新材料</button>
           </div>
           <label class="import-box">
             <input id="fileInput" type="file" multiple accept=".txt,.md,.csv,.json,.html,.htm" />
@@ -206,6 +211,51 @@
           </label>
           <textarea id="noteInput" placeholder="记录观点、待验证问题、仓位影响..."></textarea>
           <button id="saveNoteBtn" class="mini-button full">保存研究笔记</button>
+        </section>
+
+        <section class="mini-card material-editor">
+          <div class="drawer-title">
+            <strong>材料编辑器</strong>
+            <span id="selectedMaterialMeta">未选择</span>
+          </div>
+          <div class="field-stack">
+            <label>标题<input id="materialTitleInput" /></label>
+            <div class="split-fields">
+              <label>文件夹
+                <select id="materialFolderSelect">
+                  <option value="inbox">Inbox</option>
+                  <option value="company">Company</option>
+                  <option value="research">Research</option>
+                  <option value="meetings">Meetings</option>
+                  <option value="models">Models</option>
+                  <option value="archive">Archive</option>
+                </select>
+              </label>
+              <label>类型
+                <select id="materialTypeSelect">
+                  <option value="local">本地/订阅</option>
+                  <option value="open">公开互联网</option>
+                  <option value="filing">公告/财报</option>
+                  <option value="ai">AI 输出</option>
+                  <option value="decision">投资动作</option>
+                </select>
+              </label>
+            </div>
+            <label>标签<input id="materialTagsInput" placeholder="AI, 会议, 问题清单" /></label>
+          </div>
+          <div class="ai-action-row">
+            <button data-ai-action="summary" class="mini-button">摘要</button>
+            <button data-ai-action="questions" class="mini-button">问题清单</button>
+            <button data-ai-action="company" class="mini-button">公司视图</button>
+            <button data-ai-action="weekly" class="mini-button">周报素材</button>
+          </div>
+          <div class="editor-tabs">
+            <button id="sourceTabBtn" class="active" type="button">Source</button>
+            <button id="viewTabBtn" type="button">View</button>
+          </div>
+          <textarea id="sourceEditor" class="source-view-editor" placeholder="原始材料、网页摘录、会议记录、研报片段..."></textarea>
+          <textarea id="viewEditor" class="source-view-editor" placeholder="摘要、问题清单、公司视图、周报素材..." hidden></textarea>
+          <button id="saveMaterialBtn" class="mini-button full">保存材料</button>
         </section>
       </aside>
     </div>

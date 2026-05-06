@@ -29,7 +29,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -151,6 +152,14 @@ button {
   color: #d2cbc3;
 }
 
+.search-box {
+  margin: 0 18px 14px;
+}
+
+.search-box input {
+  height: 36px;
+}
+
 .intake-panel {
   margin: 0 18px 14px;
   border: 1px solid var(--line);
@@ -220,7 +229,18 @@ button {
 .note-item {
   display: grid;
   gap: 6px;
+  width: 100%;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  text-align: left;
   padding: 12px 0;
+}
+
+.note-item:hover,
+.note-item.active {
+  border-left-color: var(--blue);
+  padding-left: 10px;
 }
 
 .note-title {
@@ -250,6 +270,15 @@ button {
   color: #c9c0b8;
   padding: 3px 8px;
   font-size: 12px;
+}
+
+.empty-list {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  margin-top: 12px;
+  padding: 14px;
+  text-align: center;
 }
 
 .user-card {
@@ -796,7 +825,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -810,6 +840,49 @@ textarea {
   min-height: 118px;
   resize: vertical;
   margin-top: 10px;
+}
+
+.material-editor {
+  gap: 12px;
+}
+
+.split-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.ai-action-row,
+.editor-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.editor-tabs {
+  border-bottom: 1px solid var(--line-soft);
+  margin-top: 2px;
+}
+
+.editor-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 2px 7px;
+  font-weight: 900;
+}
+
+.editor-tabs button.active {
+  border-bottom-color: var(--blue);
+  color: #e6f6ff;
+}
+
+.source-view-editor {
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .mini-button {

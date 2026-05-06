@@ -2,6 +2,9 @@ const storageKey = "investment-intel-workstation-v2";
 
 const defaultState = {
   activeCompanyId: "amzn",
+  activeItemId: "amzn-Amazon Launches Supply Chain Service for Sellers",
+  searchQuery: "",
+  editorTab: "source",
   companies: [
     { id: "amzn", name: "Amazon.com Inc.", ticker: "AMZN", cik: "0001018724", topics: ["AI", "AWS", "retail margin", "agent commerce"], notes: "" },
     { id: "msft", name: "Microsoft Corporation", ticker: "MSFT", cik: "0000789019", topics: ["Azure", "Copilot", "OpenAI", "enterprise demand"], notes: "" },
@@ -80,6 +83,7 @@ const els = {
   noteStream: document.querySelector("#noteStream"),
   queueTotal: document.querySelector("#queueTotal"),
   intakeQueue: document.querySelector("#intakeQueue"),
+  searchInput: document.querySelector("#searchInput"),
   briefList: document.querySelector("#briefList"),
   workflowGrid: document.querySelector("#workflowGrid"),
   impactMatrix: document.querySelector("#impactMatrix"),
@@ -97,6 +101,17 @@ const els = {
   fileInput: document.querySelector("#fileInput"),
   noteInput: document.querySelector("#noteInput"),
   saveNoteBtn: document.querySelector("#saveNoteBtn"),
+  newMaterialBtn: document.querySelector("#newMaterialBtn"),
+  selectedMaterialMeta: document.querySelector("#selectedMaterialMeta"),
+  materialTitleInput: document.querySelector("#materialTitleInput"),
+  materialFolderSelect: document.querySelector("#materialFolderSelect"),
+  materialTypeSelect: document.querySelector("#materialTypeSelect"),
+  materialTagsInput: document.querySelector("#materialTagsInput"),
+  sourceTabBtn: document.querySelector("#sourceTabBtn"),
+  viewTabBtn: document.querySelector("#viewTabBtn"),
+  sourceEditor: document.querySelector("#sourceEditor"),
+  viewEditor: document.querySelector("#viewEditor"),
+  saveMaterialBtn: document.querySelector("#saveMaterialBtn"),
   addCompanyBtn: document.querySelector("#addCompanyBtn"),
   companyDialog: document.querySelector("#companyDialog"),
   confirmAddCompany: document.querySelector("#confirmAddCompany"),
@@ -124,7 +139,7 @@ function sample(companyId, type, title, summary, source, publishedAt) {
 function loadState() {
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey));
-    if (stored?.companies?.length) return stored;
+    if (stored?.companies?.length) return { ...structuredClone(defaultState), ...stored };
   } catch {
     return structuredClone(defaultState);
   }
@@ -220,6 +235,43 @@ function activeItems() {
     .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
 }
 
+function materialSource(item) {
+  return item?.sourceText || item?.rawText || item?.summary || "";
+}
+
+function materialView(item) {
+  return item?.viewText || "";
+}
+
+function materialTags(item) {
+  return Array.isArray(item?.tags) ? item.tags : [];
+}
+
+function selectedItem() {
+  return state.items.find((item) => item.id === state.activeItemId) || filteredItems()[0] || state.items[0] || null;
+}
+
+function filteredItems() {
+  const query = String(state.searchQuery || "").trim().toLowerCase();
+  return [...state.items]
+    .filter((item) => {
+      if (!query) return true;
+      const haystack = [
+        item.title,
+        item.summary,
+        materialSource(item),
+        materialView(item),
+        item.source,
+        item.form,
+        item.folderId,
+        item.entity,
+        ...materialTags(item)
+      ].join(" ").toLowerCase();
+      return haystack.includes(query);
+    })
+    .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
+}
+
 function formatTime(value) {
   const date = new Date(value || Date.now());
   if (Number.isNaN(date.getTime())) return "刚刚";
@@ -245,19 +297,17 @@ function addItems(items) {
 }
 
 function renderNotes() {
-  const rows = [...state.items]
-    .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)))
-    .slice(0, 18);
+  const rows = filteredItems().slice(0, 18);
 
   els.noteStream.innerHTML = rows.map((item) => `
-    <article class="note-item">
+    <button class="note-item ${item.id === selectedItem()?.id ? "active" : ""}" data-item-id="${escapeHtml(item.id)}" type="button">
       <div class="note-title">${escapeHtml(item.title)}</div>
       <div class="note-meta">
         <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
         <span class="tag">${escapeHtml(item.source || item.form || "OPEN")}</span>
       </div>
-    </article>
-  `).join("");
+    </button>
+  `).join("") || `<div class="empty-list">没有找到匹配材料</div>`;
 }
 
 function renderIntakeQueue() {
@@ -400,12 +450,37 @@ function renderCompanies() {
 
 function renderEditor() {
   const company = activeCompany();
+  const item = selectedItem();
   els.activeTicker.textContent = company.ticker || "公司";
   els.companyNameInput.value = company.name || "";
   els.tickerInput.value = company.ticker || "";
   els.cikInput.value = company.cik || "";
   els.topicsInput.value = (company.topics || []).join(", ");
   els.noteInput.value = company.notes || "";
+  els.searchInput.value = state.searchQuery || "";
+
+  if (!item) {
+    els.selectedMaterialMeta.textContent = "未选择";
+    els.materialTitleInput.value = "";
+    els.materialFolderSelect.value = "inbox";
+    els.materialTypeSelect.value = "local";
+    els.materialTagsInput.value = "";
+    els.sourceEditor.value = "";
+    els.viewEditor.value = "";
+    return;
+  }
+
+  els.selectedMaterialMeta.textContent = `${item.source || item.form || item.type} · ${formatTime(item.publishedAt || item.createdAt)}`;
+  els.materialTitleInput.value = item.title || "";
+  els.materialFolderSelect.value = item.folderId || (item.companyId ? "company" : "inbox");
+  els.materialTypeSelect.value = item.type || "local";
+  els.materialTagsInput.value = materialTags(item).join(", ");
+  els.sourceEditor.value = materialSource(item);
+  els.viewEditor.value = materialView(item);
+  els.sourceEditor.hidden = state.editorTab === "view";
+  els.viewEditor.hidden = state.editorTab !== "view";
+  els.sourceTabBtn.classList.toggle("active", state.editorTab !== "view");
+  els.viewTabBtn.classList.toggle("active", state.editorTab === "view");
 }
 
 function render() {
@@ -464,8 +539,12 @@ async function importFiles(files) {
       id: `${company.id}-${file.name}-${file.lastModified}`,
       companyId: company.id,
       type: "local",
+      folderId: "inbox",
+      tags: ["导入"],
       title: file.name,
       source: company.ticker || "LOCAL",
+      sourceText: text,
+      viewText: "",
       createdAt: new Date(file.lastModified || Date.now()).toISOString(),
       publishedAt: new Date(file.lastModified || Date.now()).toISOString(),
       summary: summary || "空文件"
@@ -500,8 +579,12 @@ function saveResearchNote() {
       id,
       companyId: company.id,
       type: "local",
+      folderId: "research",
+      tags: ["PM Note"],
       title: `${company.ticker || company.name} 研究笔记`,
       source: "PM NOTE",
+      sourceText: note,
+      viewText: existing?.viewText || "",
       createdAt: existing?.createdAt || now,
       publishedAt: now,
       summary: note.replace(/\s+/g, " ").slice(0, 280)
@@ -517,6 +600,81 @@ function saveResearchNote() {
   render();
   persistCompany(company);
   if (noteItem) persistItems([noteItem]);
+}
+
+function normalizeTags(value) {
+  return String(value || "")
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function saveSelectedMaterial() {
+  const item = selectedItem();
+  if (!item) return;
+  item.title = els.materialTitleInput.value.trim() || item.title || "未命名材料";
+  item.folderId = els.materialFolderSelect.value;
+  item.type = els.materialTypeSelect.value;
+  item.tags = normalizeTags(els.materialTagsInput.value);
+  item.sourceText = els.sourceEditor.value;
+  item.viewText = els.viewEditor.value;
+  item.summary = (item.viewText || item.sourceText || item.summary || "").replace(/\s+/g, " ").trim().slice(0, 280);
+  item.publishedAt = new Date().toISOString();
+  item.createdAt = item.createdAt || item.publishedAt;
+  item.companyId = item.companyId || activeCompany().id;
+  saveState();
+  render();
+  persistItems([item]);
+}
+
+function createMaterial() {
+  const company = activeCompany();
+  const now = new Date().toISOString();
+  const item = {
+    id: `${company.id}-material-${Date.now()}`,
+    companyId: company.id,
+    type: "local",
+    folderId: "inbox",
+    tags: ["待处理"],
+    title: `${company.ticker || company.name} 新材料`,
+    source: company.ticker || "LOCAL",
+    sourceText: "",
+    viewText: "",
+    summary: "等待录入 Source。",
+    createdAt: now,
+    publishedAt: now
+  };
+  state.items.unshift(item);
+  state.activeItemId = item.id;
+  state.editorTab = "source";
+  saveState();
+  render();
+  persistItems([item]);
+  els.sourceEditor.focus();
+}
+
+function appendMockAiOutput(action) {
+  const item = selectedItem();
+  if (!item) return;
+  saveSelectedMaterial();
+  const current = selectedItem();
+  const title = current.title || "当前材料";
+  const source = materialSource(current);
+  const stamp = new Date().toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const outputs = {
+    summary: `## ${stamp} 摘要\n\n- 核心信息：${source.slice(0, 120) || title}\n- 投资含义：需要判断这条信息是否改变收入、利润率、估值或仓位假设。\n- 下一步：补充来源、日期和待验证问题。`,
+    questions: `## ${stamp} 问题清单\n\n1. 这条材料支持哪一个投资判断？\n2. 对 ${activeCompany().ticker || activeCompany().name} 的收入、利润或估值影响是什么？\n3. 还缺哪一个反证或验证数据？`,
+    company: `## ${stamp} 公司视图\n\n公司：${activeCompany().name}\n主题：${(activeCompany().topics || []).join(" / ") || "未设置"}\n\n把这条材料归入：业务变化、竞争格局、管理层表述、财务影响或催化剂。`,
+    weekly: `## ${stamp} 周报素材\n\n一句话结论：${title}\n\n可复用证据：${(source || current.summary || "").slice(0, 160)}\n\n待跟进：下次更新 Daily Brief 前确认影响级别。`
+  };
+  current.viewText = [materialView(current), outputs[action]].filter(Boolean).join("\n\n");
+  current.summary = current.viewText.replace(/\s+/g, " ").slice(0, 280);
+  current.publishedAt = new Date().toISOString();
+  state.editorTab = "view";
+  saveState();
+  render();
+  persistItems([current]);
 }
 
 function addCompany() {
@@ -542,9 +700,36 @@ function addCompany() {
 }
 
 els.refreshBtn.addEventListener("click", refreshOpenInfo);
+els.noteStream.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-item-id]");
+  if (!button) return;
+  state.activeItemId = button.dataset.itemId;
+  saveState();
+  render();
+});
+els.searchInput.addEventListener("input", (event) => {
+  state.searchQuery = event.target.value;
+  saveState();
+  renderNotes();
+});
 els.fileInput.addEventListener("change", (event) => importFiles(event.target.files));
 els.saveCompanyBtn.addEventListener("click", updateActiveCompanyFromForm);
 els.saveNoteBtn.addEventListener("click", saveResearchNote);
+els.newMaterialBtn.addEventListener("click", createMaterial);
+els.saveMaterialBtn.addEventListener("click", saveSelectedMaterial);
+els.sourceTabBtn.addEventListener("click", () => {
+  state.editorTab = "source";
+  saveState();
+  renderEditor();
+});
+els.viewTabBtn.addEventListener("click", () => {
+  state.editorTab = "view";
+  saveState();
+  renderEditor();
+});
+document.querySelectorAll("[data-ai-action]").forEach((button) => {
+  button.addEventListener("click", () => appendMockAiOutput(button.dataset.aiAction));
+});
 els.addCompanyBtn.addEventListener("click", () => els.companyDialog.showModal());
 els.confirmAddCompany.addEventListener("click", addCompany);
 els.askForm.addEventListener("submit", (event) => {
