@@ -227,7 +227,15 @@ async function syncFromBackend() {
 
 async function persistCompany(company) {
   try {
-    await api("companies", { method: "POST", body: JSON.stringify(company) });
+    const payload = {
+      id: company.id,
+      name: company.name,
+      ticker: company.ticker,
+      cik: company.cik,
+      topics: company.topics || [],
+      notes: company.notes || ""
+    };
+    await api("companies", { method: "POST", body: JSON.stringify(payload) });
   } catch (error) {
     console.warn("Company saved locally only:", error.message);
   }
@@ -487,11 +495,76 @@ function quoteRow([name, value, change]) {
   return `<div class="quote-row"><span>${escapeHtml(name)}</span><strong>${escapeHtml(value)}</strong><span class="${cls}">${escapeHtml(change)}%</span></div>`;
 }
 
+function inferIndustry(company) {
+  if (company.industry) return company.industry;
+  const ticker = String(company.ticker || "").toUpperCase();
+  const text = `${company.name || ""} ${(company.topics || []).join(" ")}`.toLowerCase();
+  const tickerMap = {
+    AMZN: "互联网/消费",
+    BABA: "互联网/消费",
+    JD: "互联网/消费",
+    PDD: "互联网/消费",
+    MELI: "互联网/消费",
+    NFLX: "互联网/消费",
+    META: "互联网/消费",
+    GOOGL: "互联网/消费",
+    GOOG: "互联网/消费",
+    MSFT: "软件/AI",
+    PLTR: "软件/AI",
+    CRM: "软件/AI",
+    NOW: "软件/AI",
+    ADBE: "软件/AI",
+    NET: "数据/安全",
+    DDOG: "数据/安全",
+    CRWD: "数据/安全",
+    SNOW: "数据/安全",
+    NVDA: "半导体",
+    AMD: "半导体",
+    AVGO: "半导体",
+    TSM: "半导体",
+    ASML: "半导体",
+    INTC: "半导体",
+    MU: "半导体",
+    TSLA: "汽车/新能源",
+    BYD: "汽车/新能源",
+    NIO: "汽车/新能源",
+    XPEV: "汽车/新能源",
+    JPM: "金融",
+    BAC: "金融",
+    GS: "金融",
+    MS: "金融"
+  };
+  if (tickerMap[ticker]) return tickerMap[ticker];
+  if (/semiconductor|chip|gpu|半导体|晶圆|存储|ai capex/.test(text)) return "半导体";
+  if (/security|cyber|data|database|cloudflare|observability|数据|安全/.test(text)) return "数据/安全";
+  if (/software|saas|cloud|ai|agent|copilot|aip|azure|软件/.test(text)) return "软件/AI";
+  if (/retail|commerce|streaming|ads|consumer|消费|电商|广告/.test(text)) return "互联网/消费";
+  if (/bank|fintech|payment|金融|银行|支付/.test(text)) return "金融";
+  return "其他";
+}
+
 function renderCompanies() {
-  els.companyList.innerHTML = state.companies.map((company) => `
-    <button class="company-pill ${company.id === state.activeCompanyId ? "active" : ""}" data-company="${company.id}">
-      ${escapeHtml(company.ticker || company.name)}
-    </button>
+  const groups = state.companies.reduce((acc, company) => {
+    const industry = inferIndustry(company);
+    if (!acc.has(industry)) acc.set(industry, []);
+    acc.get(industry).push(company);
+    return acc;
+  }, new Map());
+
+  els.companyList.innerHTML = [...groups.entries()].map(([industry, companies]) => `
+    <section class="company-group">
+      <div class="company-group-title">
+        <span>${escapeHtml(industry)}</span>
+        <em>${companies.length}</em>
+      </div>
+      <div class="company-group-pills">
+        ${companies.map((company) => `
+          <button class="company-pill ${company.id === state.activeCompanyId ? "active" : ""}" data-company="${company.id}">
+            ${escapeHtml(company.ticker || company.name)}
+          </button>
+        `).join("")}
+      </div>
+    </section>
   `).join("");
 
   document.querySelectorAll("[data-company]").forEach((button) => {
@@ -816,7 +889,7 @@ function parseCompanyRows(text) {
   const delimiter = lines.some((line) => line.includes("\t")) ? "\t" : ",";
   const rows = lines.map((line) => splitDelimitedLine(line, delimiter));
   const header = rows[0].map((cell) => cell.toLowerCase().replace(/\s+/g, ""));
-  const hasHeader = header.some((cell) => ["公司", "公司名称", "name", "company", "ticker", "代码", "股票代码", "cik", "主题", "topics"].includes(cell));
+  const hasHeader = header.some((cell) => ["公司", "公司名称", "name", "company", "ticker", "代码", "股票代码", "cik", "主题", "topics", "行业", "industry", "sector", "分类"].includes(cell));
   const body = hasHeader ? rows.slice(1) : rows;
 
   const findIndex = (names, fallback) => {
@@ -827,6 +900,7 @@ function parseCompanyRows(text) {
   const tickerIndex = hasHeader ? findIndex(["代码", "股票代码", "ticker", "symbol"], 1) : 1;
   const cikIndex = hasHeader ? findIndex(["cik", "sec", "seccik"], 2) : 2;
   const topicsIndex = hasHeader ? findIndex(["主题", "topics", "tags", "关注点"], 3) : 3;
+  const industryIndex = hasHeader ? findIndex(["行业", "industry", "sector", "分类"], -1) : -1;
 
   return body.map((row) => {
     const name = (row[nameIndex] || "").trim();
@@ -836,6 +910,7 @@ function parseCompanyRows(text) {
       .split(/[;,，、]/)
       .map((topic) => topic.trim())
       .filter(Boolean);
+    const industry = industryIndex >= 0 ? (row[industryIndex] || "").trim() : "";
     if (!name && !ticker) return null;
     const id = (ticker || name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     return {
@@ -843,6 +918,7 @@ function parseCompanyRows(text) {
       name: name || ticker,
       ticker,
       cik,
+      industry,
       topics,
       notes: ""
     };
@@ -868,6 +944,7 @@ function importCompanies() {
         name: row.name || previous.name,
         ticker: row.ticker || previous.ticker,
         cik: row.cik || previous.cik,
+        industry: row.industry || previous.industry,
         topics: row.topics.length ? row.topics : previous.topics
       });
     } else {

@@ -852,10 +852,35 @@ button {
 }
 
 .company-pills {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.company-group {
+  display: grid;
+  gap: 6px;
+}
+
+.company-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.company-group-title em {
+  color: var(--muted-2);
+  font-style: normal;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.company-group-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 10px;
 }
 
 .company-pill {
