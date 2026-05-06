@@ -253,23 +253,33 @@ async function getOpenWeb(url) {
       })),
       fetchedAt: new Date().toISOString()
     });
-  } catch {
+  } catch (primaryError) {
     const rssParams = new URLSearchParams({ q: query, hl: "en-US", gl: "US", ceid: "US:en" });
-    const xml = await fetchText(`https://news.google.com/rss/search?${rssParams}`);
-    const items = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
-    return json({
-      articles: items.slice(0, 25).map((item) => ({
-        id: tagValue(item, "guid") || tagValue(item, "link") || tagValue(item, "title"),
-        title: tagValue(item, "title"),
-        source: tagValue(item, "source") || "Google News",
-        url: tagValue(item, "link"),
-        publishedAt: tagValue(item, "pubDate"),
-        summary: tagValue(item, "description").replace(/<[^>]+>/g, " "),
-        language: "en",
-        sentiment: null
-      })),
-      fetchedAt: new Date().toISOString()
-    });
+    try {
+      const xml = await fetchText(`https://news.google.com/rss/search?${rssParams}`);
+      const items = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
+      return json({
+        articles: items.slice(0, 25).map((item) => ({
+          id: tagValue(item, "guid") || tagValue(item, "link") || tagValue(item, "title"),
+          title: tagValue(item, "title"),
+          source: tagValue(item, "source") || "Google News",
+          url: tagValue(item, "link"),
+          publishedAt: tagValue(item, "pubDate"),
+          summary: tagValue(item, "description").replace(/<[^>]+>/g, " "),
+          language: "en",
+          sentiment: null
+        })),
+        fetchedAt: new Date().toISOString(),
+        backend: "google-news-rss"
+      });
+    } catch (fallbackError) {
+      return json({
+        articles: [],
+        error: `Open internet unavailable: ${fallbackError.message || primaryError.message || "unknown error"}`,
+        fetchedAt: new Date().toISOString(),
+        backend: "open-web-empty"
+      });
+    }
   }
 }
 

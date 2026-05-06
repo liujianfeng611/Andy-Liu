@@ -78,6 +78,7 @@ const queueTemplates = [
 
 let state = loadState();
 let backendStatus = "local";
+const autoRefreshingCompanies = new Set();
 
 const els = {
   noteStream: document.querySelector("#noteStream"),
@@ -286,6 +287,14 @@ function filteredItems() {
     .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
 }
 
+function companyOpenNewsCount(companyId) {
+  return state.items
+    .filter(isVisibleMaterial)
+    .filter((item) => item.companyId === companyId && item.type === "open")
+    .filter((item) => materialUrl(item))
+    .length;
+}
+
 function formatTime(value) {
   const date = new Date(value || Date.now());
   if (Number.isNaN(date.getTime())) return "刚刚";
@@ -315,9 +324,12 @@ function renderNotes() {
   const selectedId = selectedItem()?.id;
   const company = activeCompany();
   const companyLabel = escapeHtml(company.ticker || company.name);
-  const emptyText = state.searchQuery
+  const isLoading = autoRefreshingCompanies.has(company.id);
+  const emptyText = isLoading
+    ? `正在从 open internet 抓取 ${companyLabel} 新闻...`
+    : state.searchQuery
     ? `没有找到 ${companyLabel} 中匹配“${escapeHtml(state.searchQuery)}”的材料。切换公司会自动清空搜索。`
-    : `${companyLabel} 暂时没有可显示的新闻。点击顶部“刷新”拉取公开互联网和公告。`;
+    : `${companyLabel} 暂时没有可显示的新闻，正在等待公开互联网抓取。`;
 
   els.noteStream.innerHTML = rows.map((item) => {
     const link = materialUrl(item);
@@ -469,13 +481,18 @@ function renderCompanies() {
 
   document.querySelectorAll("[data-company]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.activeCompanyId = button.dataset.company;
-      state.activeItemId = "";
-      state.searchQuery = "";
-      saveState();
-      render();
+      selectCompany(button.dataset.company);
     });
   });
+}
+
+function selectCompany(companyId) {
+  state.activeCompanyId = companyId;
+  state.activeItemId = "";
+  state.searchQuery = "";
+  saveState();
+  render();
+  maybeAutoRefreshCompany(companyId);
 }
 
 function renderEditor() {
@@ -529,8 +546,22 @@ function render() {
   renderEditor();
 }
 
-async function refreshOpenInfo() {
-  const company = activeCompany();
+async function maybeAutoRefreshCompany(companyId) {
+  if (autoRefreshingCompanies.has(companyId)) return;
+  if (companyOpenNewsCount(companyId) >= 8) return;
+  autoRefreshingCompanies.add(companyId);
+  renderNotes();
+  try {
+    const company = state.companies.find((row) => row.id === companyId) || activeCompany();
+    await refreshOpenInfo({ auto: true, company });
+  } finally {
+    autoRefreshingCompanies.delete(companyId);
+    render();
+  }
+}
+
+async function refreshOpenInfo(options = {}) {
+  const company = options.company || activeCompany();
   els.refreshBtn.disabled = true;
   els.refreshBtn.textContent = "刷新中";
 
@@ -557,8 +588,10 @@ async function refreshOpenInfo() {
 
     addItems([...openItems, ...filingItems]);
   } catch (error) {
-    const message = sample(company.id, "open", "公开信息刷新失败", error.message || "上游暂时不可用", "SYSTEM", new Date().toISOString());
-    addItems([message]);
+    if (!options.auto) {
+      const message = sample(company.id, "open", "公开信息刷新失败", error.message || "上游暂时不可用", "SYSTEM", new Date().toISOString());
+      addItems([message]);
+    }
   } finally {
     els.refreshBtn.disabled = false;
     els.refreshBtn.textContent = "刷新";
