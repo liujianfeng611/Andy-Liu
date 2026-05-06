@@ -281,6 +281,23 @@ button {
   text-align: center;
 }
 
+.source-link {
+  color: #8dddff;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.source-link:hover {
+  text-decoration: underline;
+}
+
+.material-meta-line {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: -2px;
+}
+
 .user-card {
   display: grid;
   grid-template-columns: 46px 1fr 34px 34px;

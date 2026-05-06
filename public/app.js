@@ -103,6 +103,7 @@ const els = {
   saveNoteBtn: document.querySelector("#saveNoteBtn"),
   newMaterialBtn: document.querySelector("#newMaterialBtn"),
   selectedMaterialMeta: document.querySelector("#selectedMaterialMeta"),
+  materialUrlLink: document.querySelector("#materialUrlLink"),
   materialTitleInput: document.querySelector("#materialTitleInput"),
   materialFolderSelect: document.querySelector("#materialFolderSelect"),
   materialTypeSelect: document.querySelector("#materialTypeSelect"),
@@ -231,7 +232,7 @@ function activeCompany() {
 function activeItems() {
   const activeId = activeCompany().id;
   return state.items
-    .filter((item) => item.companyId === activeId || item.type === "local")
+    .filter((item) => item.companyId === activeId || !item.companyId)
     .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
 }
 
@@ -248,12 +249,15 @@ function materialTags(item) {
 }
 
 function selectedItem() {
-  return state.items.find((item) => item.id === state.activeItemId) || filteredItems()[0] || state.items[0] || null;
+  const visible = filteredItems();
+  return visible.find((item) => item.id === state.activeItemId) || visible[0] || null;
 }
 
 function filteredItems() {
   const query = String(state.searchQuery || "").trim().toLowerCase();
-  return [...state.items]
+  const activeId = activeCompany().id;
+  return state.items
+    .filter((item) => item.companyId === activeId || !item.companyId)
     .filter((item) => {
       if (!query) return true;
       const haystack = [
@@ -298,9 +302,10 @@ function addItems(items) {
 
 function renderNotes() {
   const rows = filteredItems().slice(0, 18);
+  const selectedId = selectedItem()?.id;
 
   els.noteStream.innerHTML = rows.map((item) => `
-    <button class="note-item ${item.id === selectedItem()?.id ? "active" : ""}" data-item-id="${escapeHtml(item.id)}" type="button">
+    <button class="note-item ${item.id === selectedId ? "active" : ""}" data-item-id="${escapeHtml(item.id)}" type="button">
       <div class="note-title">${escapeHtml(item.title)}</div>
       <div class="note-meta">
         <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
@@ -442,6 +447,7 @@ function renderCompanies() {
   document.querySelectorAll("[data-company]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeCompanyId = button.dataset.company;
+      state.activeItemId = "";
       saveState();
       render();
     });
@@ -461,6 +467,8 @@ function renderEditor() {
 
   if (!item) {
     els.selectedMaterialMeta.textContent = "未选择";
+    els.materialUrlLink.hidden = true;
+    els.materialUrlLink.removeAttribute("href");
     els.materialTitleInput.value = "";
     els.materialFolderSelect.value = "inbox";
     els.materialTypeSelect.value = "local";
@@ -470,7 +478,11 @@ function renderEditor() {
     return;
   }
 
-  els.selectedMaterialMeta.textContent = `${item.source || item.form || item.type} · ${formatTime(item.publishedAt || item.createdAt)}`;
+  const link = item.url || item.raw?.url || "";
+  els.selectedMaterialMeta.textContent = `${item.source || item.form || item.type} · ${formatTime(item.publishedAt || item.createdAt)} · ${activeCompany().ticker || activeCompany().name}`;
+  els.materialUrlLink.hidden = !link;
+  if (link) els.materialUrlLink.href = link;
+  else els.materialUrlLink.removeAttribute("href");
   els.materialTitleInput.value = item.title || "";
   els.materialFolderSelect.value = item.folderId || (item.companyId ? "company" : "inbox");
   els.materialTypeSelect.value = item.type || "local";
@@ -710,7 +722,7 @@ els.noteStream.addEventListener("click", (event) => {
 els.searchInput.addEventListener("input", (event) => {
   state.searchQuery = event.target.value;
   saveState();
-  renderNotes();
+  render();
 });
 els.fileInput.addEventListener("change", (event) => importFiles(event.target.files));
 els.saveCompanyBtn.addEventListener("click", updateActiveCompanyFromForm);
