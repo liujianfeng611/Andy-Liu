@@ -480,6 +480,50 @@ function transcriptNeedsFile(item, transcript) {
   return /暂不.*解析正文|不能直接读取正文|编码无法可靠识别|读取正文时失败|解析文件内容失败|没有提取到/.test(text);
 }
 
+function rawStoredFileText(item) {
+  return String(item?.sourceText || item?.rawText || "");
+}
+
+function storedTextLooksLikeFileBytes(item) {
+  const text = rawStoredFileText(item);
+  return /^%PDF-/.test(text) || /^PK[\u0003\u0005\u0007]/.test(text);
+}
+
+function storedTextToBytes(text) {
+  const bytes = new Uint8Array(text.length);
+  for (let index = 0; index < text.length; index += 1) {
+    bytes[index] = text.charCodeAt(index) & 0xff;
+  }
+  return bytes.buffer;
+}
+
+async function recoverStoredFileTranscript(item) {
+  if (!storedTextLooksLikeFileBytes(item)) return false;
+  const raw = rawStoredFileText(item);
+  const buffer = storedTextToBytes(raw);
+  const title = item.title || "";
+  let text = "";
+  try {
+    if (/^%PDF-/.test(raw) || /\.pdf$/i.test(title)) {
+      text = await extractPdfText(buffer);
+    } else if (/\.docx$/i.test(title) || /\.doc$/i.test(title) || /^PK/.test(raw)) {
+      text = await extractDocxText(buffer);
+    }
+  } catch {
+    text = "";
+  }
+  if (!text) return false;
+  item.sourceText = text;
+  item.rawText = "";
+  item.summary = text.replace(/\s+/g, " ").trim().slice(0, 280);
+  item.tags = [...new Set([...materialTags(item), "自动恢复正文"])].slice(0, 12);
+  item.publishedAt = new Date().toISOString();
+  saveState();
+  render();
+  persistItems([item]);
+  return true;
+}
+
 function materialTags(item) {
   return Array.isArray(item?.tags) ? item.tags : [];
 }
@@ -1256,9 +1300,8 @@ function renderNoteReaderBody(item, activeTab) {
       return `
         <section class="note-reader-placeholder transcript-import-box">
           <strong>读取文件内容</strong>
-          <p>${escapeHtml(transcript || fallback)}</p>
-          <button data-attach-transcript-file type="button">选择原文件并显示内容</button>
-          <small>支持 PDF、Word docx、txt、md、csv、json、html。扫描版 PDF 可能需要 OCR，旧版 .doc 请先另存为 .docx。</small>
+          <p>${escapeHtml(storedTextLooksLikeFileBytes(item) ? "正在尝试从已保存文件数据中恢复正文；恢复成功后会自动显示在这里。" : transcript || fallback)}</p>
+          <small>新上传的 PDF / Word 会自动读取正文。旧笔记如果当时没有保存原文件内容，浏览器无法仅凭标题重新读取电脑里的文件。</small>
         </section>
       `;
     }
@@ -2249,6 +2292,7 @@ els.noteStream.addEventListener("click", (event) => {
   state.activeItemId = button.dataset.itemId;
   saveState();
   render();
+  if (storedTextLooksLikeFileBytes(item)) recoverStoredFileTranscript(item);
 });
 els.searchInput.addEventListener("input", (event) => {
   state.searchQuery = event.target.value;
