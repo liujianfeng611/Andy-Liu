@@ -263,16 +263,103 @@ function isTextLikeFile(file) {
     || /\.(txt|md|markdown|csv|tsv|json|html?|xml|log|srt|vtt)$/i.test(name);
 }
 
+function fileKind(file) {
+  const name = file?.name || "";
+  const type = file?.type || "";
+  if (/\.pdf$/i.test(name) || type === "application/pdf") return "pdf";
+  if (/\.docx$/i.test(name) || /wordprocessingml/i.test(type)) return "docx";
+  if (/\.(xlsx|xls)$/i.test(name) || /spreadsheet|excel/i.test(type)) return "sheet";
+  if (isTextLikeFile(file)) return "text";
+  return "unknown";
+}
+
+const scriptLoaders = new Map();
+
+function loadScriptOnce(url) {
+  if (scriptLoaders.has(url)) return scriptLoaders.get(url);
+  const promise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = url;
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error(`无法加载文件解析器：${url}`));
+    document.head.appendChild(script);
+  });
+  scriptLoaders.set(url, promise);
+  return promise;
+}
+
+async function extractPdfText(buffer) {
+  const pdfjsLib = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+  const pages = [];
+  const pageLimit = Math.min(pdf.numPages, 80);
+  for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const text = content.items.map((item) => item.str || "").join(" ");
+    if (text.trim()) pages.push(`第 ${pageNumber} 页\n${text}`);
+  }
+  if (pdf.numPages > pageLimit) pages.push(`已读取前 ${pageLimit} 页，共 ${pdf.numPages} 页。`);
+  return cleanTranscriptText(pages.join("\n\n"));
+}
+
+async function extractDocxText(buffer) {
+  await loadScriptOnce("https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js");
+  if (!window.mammoth?.extractRawText) throw new Error("Word 解析器未就绪");
+  const result = await window.mammoth.extractRawText({ arrayBuffer: buffer });
+  return cleanTranscriptText(result.value || "");
+}
+
+async function extractSheetText(buffer) {
+  await loadScriptOnce("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+  if (!window.XLSX?.read) throw new Error("Excel 解析器未就绪");
+  const workbook = window.XLSX.read(buffer, { type: "array" });
+  const sections = workbook.SheetNames.slice(0, 20).map((sheetName) => {
+    const csv = window.XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName], { blankrows: false });
+    return cleanTranscriptText(`Sheet: ${sheetName}\n${csv}`);
+  }).filter(Boolean);
+  if (workbook.SheetNames.length > 20) sections.push(`已读取前 20 个 sheet，共 ${workbook.SheetNames.length} 个。`);
+  return cleanTranscriptText(sections.join("\n\n"));
+}
+
 async function readUploadText(file) {
-  if (!isTextLikeFile(file)) {
+  const kind = fileKind(file);
+  const buffer = await file.arrayBuffer();
+
+  try {
+    if (kind === "pdf") {
+      const text = await extractPdfText(buffer);
+      if (text) return { text, readable: true, message: "" };
+      return { text: "", readable: false, message: `${file.name} 已上传，但 PDF 没有提取到可复制文字，可能是扫描件。` };
+    }
+    if (kind === "docx") {
+      const text = await extractDocxText(buffer);
+      if (text) return { text, readable: true, message: "" };
+      return { text: "", readable: false, message: `${file.name} 已上传，但 Word 文件没有提取到正文。` };
+    }
+    if (kind === "sheet") {
+      const text = await extractSheetText(buffer);
+      if (text) return { text, readable: true, message: "" };
+      return { text: "", readable: false, message: `${file.name} 已上传，但表格里没有提取到内容。` };
+    }
+  } catch (error) {
     return {
       text: "",
       readable: false,
-      message: `${file.name} 已上传。这个文件类型暂不直接解析正文，请后续接入 PDF/Excel/Word 解析器。`
+      message: `${file.name} 已上传，但解析文件内容失败：${error.message || "解析器不可用"}。`
     };
   }
 
-  const buffer = await file.arrayBuffer();
+  if (kind !== "text") {
+    return {
+      text: "",
+      readable: false,
+      message: `${file.name} 已上传。这个文件类型目前还不能直接读取正文。`
+    };
+  }
+
   const decoders = ["utf-8", "gb18030", "big5"];
   for (const encoding of decoders) {
     try {
