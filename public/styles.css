@@ -1238,6 +1238,51 @@ body.company-mode .right-drawer {
   padding: 10px;
 }
 
+.transcript-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.transcript-head {
+  border-bottom: 1px solid var(--line);
+  padding: 4px 0 14px;
+}
+
+.transcript-head h2 {
+  color: #eee8df;
+  font-size: 20px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.transcript-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.transcript-meta span {
+  border-radius: 6px;
+  background: #2f2a25;
+  color: #d6cec6;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.transcript-body {
+  max-width: 1180px;
+  color: #d8d3cc;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.72;
+}
+
+.transcript-body p {
+  margin: 0 0 12px;
+}
+
 .view-stream strong,
 .view-stream span {
   display: block;

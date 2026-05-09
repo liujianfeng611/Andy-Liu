@@ -66,7 +66,8 @@ const companyWorkspaceTabs = [
   ["committee", "投委会"],
   ["questions", "问题清单"],
   ["deep", "深研"],
-  ["continuous", "连续研究"]
+  ["continuous", "连续研究"],
+  ["transcript", "Transcript"]
 ];
 
 const regionalMarkets = [
@@ -286,6 +287,15 @@ function materialSource(item) {
 
 function materialView(item) {
   return item?.viewText || "";
+}
+
+function materialTranscript(item) {
+  return [
+    item?.sourceText,
+    item?.rawText,
+    item?.viewText,
+    readableText(item?.summary)
+  ].filter(Boolean).join("\n\n").trim();
 }
 
 function materialTags(item) {
@@ -1005,6 +1015,30 @@ function renderCompanyContinuous(ctx) {
   `;
 }
 
+function renderCompanyTranscript(ctx) {
+  const item = selectedItem();
+  const company = item ? itemCompany(item) || ctx.company : ctx.company;
+  const transcript = materialTranscript(item);
+  const fallback = "还没有 transcript 内容。上传 txt/md/html/csv 文件可以直接读取；PDF/Excel/Word 目前先保存为文件记录，后续会接解析。";
+  return `
+    <section class="transcript-shell">
+      <header class="transcript-head">
+        <div>
+          <h2>${escapeHtml(readableText(item?.title || "Transcript"))}</h2>
+          <div class="transcript-meta">
+            <span>${escapeHtml(formatTime(item?.publishedAt || item?.createdAt))}</span>
+            <span>${escapeHtml(company?.ticker || item?.source || "NOTE")}</span>
+            <span>${escapeHtml(item?.type || "local")}</span>
+          </div>
+        </div>
+      </header>
+      <article class="transcript-body">
+        ${escapeHtml(transcript || fallback).split("\n").map((line) => `<p>${line || "&nbsp;"}</p>`).join("")}
+      </article>
+    </section>
+  `;
+}
+
 function renderCompanyWorkspaceBody(tab, ctx) {
   const map = {
     home: renderCompanyHome,
@@ -1016,7 +1050,8 @@ function renderCompanyWorkspaceBody(tab, ctx) {
     committee: renderCompanyCommittee,
     questions: renderCompanyQuestions,
     deep: renderCompanyDeep,
-    continuous: renderCompanyContinuous
+    continuous: renderCompanyContinuous,
+    transcript: renderCompanyTranscript
   };
   return (map[tab] || renderCompanyHome)(ctx);
 }
@@ -1842,8 +1877,8 @@ els.noteStream.addEventListener("click", (event) => {
   const item = state.items.find((row) => row.id === button.dataset.itemId);
   if (item?.companyId) {
     state.activeCompanyId = item.companyId;
-    state.companyWorkspaceTab = "home";
   }
+  state.companyWorkspaceTab = "transcript";
   state.activeItemId = button.dataset.itemId;
   saveState();
   render();
