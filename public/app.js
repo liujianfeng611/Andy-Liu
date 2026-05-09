@@ -222,6 +222,75 @@ function readableText(value) {
     .trim();
 }
 
+function htmlToPlainText(value) {
+  const text = String(value || "");
+  if (!/<[a-z][\s\S]*>/i.test(text)) return text;
+  const doc = new DOMParser().parseFromString(text, "text/html");
+  doc.querySelectorAll("script, style, noscript").forEach((node) => node.remove());
+  return (doc.body.textContent || text).replaceAll("\u00a0", " ");
+}
+
+function looksLikeBinaryText(text) {
+  const value = String(text || "");
+  if (!value.trim()) return false;
+  if (/^%PDF-|^PK\u0003\u0004|^\u0000/.test(value)) return true;
+  const sampleText = value.slice(0, 5000);
+  const controls = (sampleText.match(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g) || []).length;
+  const replacements = (sampleText.match(/\uFFFD/g) || []).length;
+  const oddBytes = (sampleText.match(/[�\u0000]/g) || []).length;
+  const length = Math.max(sampleText.length, 1);
+  return controls / length > 0.01 || replacements / length > 0.01 || oddBytes > 12;
+}
+
+function cleanTranscriptText(value) {
+  const raw = String(value || "");
+  if (!raw.trim()) return "";
+  if (looksLikeBinaryText(raw)) return "";
+  return htmlToPlainText(raw)
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "")
+    .replace(/\uFFFD/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function isTextLikeFile(file) {
+  const name = file?.name || "";
+  const type = file?.type || "";
+  return /^text\//i.test(type)
+    || /json|csv|xml|html|markdown|javascript|typescript/i.test(type)
+    || /\.(txt|md|markdown|csv|tsv|json|html?|xml|log|srt|vtt)$/i.test(name);
+}
+
+async function readUploadText(file) {
+  if (!isTextLikeFile(file)) {
+    return {
+      text: "",
+      readable: false,
+      message: `${file.name} 已上传。这个文件类型暂不直接解析正文，请后续接入 PDF/Excel/Word 解析器。`
+    };
+  }
+
+  const buffer = await file.arrayBuffer();
+  const decoders = ["utf-8", "gb18030", "big5"];
+  for (const encoding of decoders) {
+    try {
+      const decoded = new TextDecoder(encoding, { fatal: encoding === "utf-8" }).decode(buffer);
+      const cleaned = cleanTranscriptText(decoded);
+      if (cleaned) return { text: cleaned, readable: true, message: "" };
+    } catch {
+      // Try the next common encoding.
+    }
+  }
+
+  return {
+    text: "",
+    readable: false,
+    message: `${file.name} 已上传，但正文编码无法可靠识别。`
+  };
+}
+
 async function api(path, options = {}) {
   const response = await fetch(`/api/${path}`, {
     ...options,
@@ -299,20 +368,21 @@ function activeItems() {
 }
 
 function materialSource(item) {
-  return item?.sourceText || item?.rawText || readableText(item?.summary) || "";
+  return cleanTranscriptText(item?.sourceText || item?.rawText || readableText(item?.summary) || "");
 }
 
 function materialView(item) {
-  return item?.viewText || "";
+  return cleanTranscriptText(item?.viewText || "");
 }
 
 function materialTranscript(item) {
-  return [
+  const text = [
     item?.sourceText,
     item?.rawText,
     item?.viewText,
     readableText(item?.summary)
-  ].filter(Boolean).join("\n\n").trim();
+  ].map(cleanTranscriptText).filter(Boolean).join("\n\n").trim();
+  return cleanTranscriptText(text);
 }
 
 function materialTags(item) {
@@ -1586,26 +1656,26 @@ async function refreshOpenInfo(options = {}) {
 async function importFiles(files) {
   const company = activeCompany();
   const imported = await Promise.all([...files].map(async (file) => {
-    let text = "";
+    let upload = { text: "", readable: false, message: "" };
     try {
-      text = await file.text();
+      upload = await readUploadText(file);
     } catch {
-      text = "";
+      upload = { text: "", readable: false, message: `${file.name} 已上传，但读取正文时失败。` };
     }
-    const summary = text.replace(/\s+/g, " ").trim().slice(0, 280);
+    const summary = upload.text.replace(/\s+/g, " ").trim().slice(0, 280);
     return {
       id: `${company.id}-${file.name}-${file.lastModified}`,
       companyId: company.id,
       type: "local",
       folderId: "cloud",
-      tags: ["云端文件", "导入"],
+      tags: ["云端文件", "导入", upload.readable ? "可读正文" : "待解析"],
       title: file.name,
       source: company.ticker || "LOCAL",
-      sourceText: text || `文件已上传到 ${company.ticker || company.name} 云端文件夹。暂不支持直接解析此文件类型。`,
+      sourceText: upload.text || upload.message || `文件已上传到 ${company.ticker || company.name} 云端文件夹。暂不支持直接解析此文件类型。`,
       viewText: "",
       createdAt: new Date(file.lastModified || Date.now()).toISOString(),
       publishedAt: new Date(file.lastModified || Date.now()).toISOString(),
-      summary: summary || `${file.name} 已上传到云端文件夹`
+      summary: summary || upload.message || `${file.name} 已上传到云端文件夹`
     };
   }));
   addItems(imported);
@@ -1887,27 +1957,27 @@ async function uploadFilesToCustomFolder(files, folderId) {
   const folder = customFolders().find((row) => row.id === folderId);
   if (!folder) return;
   const imported = await Promise.all([...files].map(async (file) => {
-    let text = "";
+    let upload = { text: "", readable: false, message: "" };
     try {
-      text = await file.text();
+      upload = await readUploadText(file);
     } catch {
-      text = "";
+      upload = { text: "", readable: false, message: `${file.name} 已上传，但读取正文时失败。` };
     }
     const now = new Date().toISOString();
-    const summary = text.replace(/\s+/g, " ").trim().slice(0, 280);
+    const summary = upload.text.replace(/\s+/g, " ").trim().slice(0, 280);
     return {
       id: `${folder.id}-${file.name}-${file.lastModified || Date.now()}`,
       companyId: null,
       type: "local",
       folderId: `custom:${folder.id}`,
-      tags: ["自定义分类", folder.name],
+      tags: ["自定义分类", folder.name, upload.readable ? "可读正文" : "待解析"],
       title: file.name,
       source: folder.name,
-      sourceText: text || `文件已上传到「${folder.name}」。暂不支持直接解析此文件类型。`,
+      sourceText: upload.text || upload.message || `文件已上传到「${folder.name}」。暂不支持直接解析此文件类型。`,
       viewText: "",
       createdAt: now,
       publishedAt: now,
-      summary: summary || `${file.name} 已上传到「${folder.name}」`
+      summary: summary || upload.message || `${file.name} 已上传到「${folder.name}」`
     };
   }));
   addItems(imported);
