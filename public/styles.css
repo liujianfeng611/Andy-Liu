@@ -1225,6 +1225,17 @@ body.company-mode .right-drawer {
   font-size: 12px;
 }
 
+.compact-head {
+  margin-top: 12px;
+}
+
+.field-title {
+  display: block;
+  color: #eee8df;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
 .folder-board {
   display: grid;
   gap: 14px;

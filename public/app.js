@@ -740,6 +740,7 @@ function renderCompanyHome(ctx) {
     <section class="company-source-card">
       <div class="panel-head"><strong>当前材料</strong><span>${selected ? escapeHtml(selected.source || selected.type) : "无"}</span></div>
       <p>${escapeHtml(selectedSummary)}</p>
+      <div class="panel-head compact-head"><strong>最近笔记</strong><span>${recentNotes.length}</span></div>
       <div class="recent-note-list">
         ${recentNotes.map((item) => `
           <button data-item-id="${escapeHtml(item.id)}" type="button">
@@ -842,7 +843,10 @@ function renderCompanyModel(ctx) {
           <strong>模型匹配</strong>
           ${[100, 88, 72, 60].map((score, index) => `<span>${escapeHtml(ctx.company.name)} <em>${score}</em></span>`).join("")}
         </div>
-        <div class="core-metrics">${metrics.map(([label, value, year]) => `<article><span>${label}</span><strong>${value}</strong><em>${year}</em></article>`).join("")}</div>
+        <div>
+          <div class="panel-head compact-head"><strong>核心数字</strong><span>${metrics.length}</span></div>
+          <div class="core-metrics">${metrics.map(([label, value, year]) => `<article><span>${label}</span><strong>${value}</strong><em>${year}</em></article>`).join("")}</div>
+        </div>
       </div>
       <div class="model-table-wrap">
         <div class="panel-head"><strong>模型预览</strong><span>${escapeHtml(ctx.company.ticker || "")}</span></div>
@@ -866,6 +870,7 @@ function renderCompanyThesis(ctx) {
         <article><strong>Bear case / 反证</strong><p>材料中已有风险线索，需要逐条确认是否影响核心 thesis。</p></article>
         <article><strong>必须跟踪的变量</strong><p>需求、价格、利润率、竞争、监管和下一次财报窗口。</p></article>
       </div>
+      <div class="panel-head compact-head"><strong>证据地图</strong><span>按标题/摘要粗分</span></div>
       <div class="evidence-map">
         ${buckets.map((bucket) => `
           <article>
@@ -907,6 +912,7 @@ function renderCompanyCommittee(ctx) {
       <article class="workspace-panel committee-panel">
         <div class="panel-head"><strong>投委会审问 ${escapeHtml(ctx.company.ticker || ctx.company.name)}</strong><span>GPT 5.5</span></div>
         <p>先写你的当前判断。AI 会像投委会一样找漏洞：核心变量、市场分歧、反证条件、禁止动作和下一步验证。</p>
+        <strong class="field-title">我的当前判断</strong>
         <textarea placeholder="例：我现在倾向继续跟踪/准备买/准备放弃。核心变量是... 市场可能低估... 最大反证是..."></textarea>
         <button type="button">生成并写入观点</button>
       </article>
