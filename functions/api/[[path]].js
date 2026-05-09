@@ -21,6 +21,7 @@ export async function onRequest(context) {
     if (route === "bootstrap" && context.request.method === "GET") return getBootstrap(context.env);
     if (route === "companies" && context.request.method === "POST") return upsertCompany(context);
     if (route === "items" && context.request.method === "POST") return upsertItems(context);
+    if (route === "items" && context.request.method === "DELETE") return deleteItems(context);
     if (route === "ask" && context.request.method === "POST") return askPmAgent(context);
     if (route === "open-web" && context.request.method === "GET") return getOpenWeb(url);
     if (route === "sec" && context.request.method === "GET") return getSec(url);
@@ -40,7 +41,7 @@ function json(payload, status = 200) {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
       "access-control-allow-headers": "content-type"
     }
   });
@@ -162,6 +163,20 @@ async function upsertItems(context) {
     body: JSON.stringify(items.map(toDbItem))
   });
   return json({ items: rows.map(fromDbItem), backend: "supabase" });
+}
+
+async function deleteItems(context) {
+  const payload = await context.request.json().catch(() => ({}));
+  const ids = Array.isArray(payload?.ids) ? payload.ids.filter(Boolean) : [];
+  if (!ids.length) return json({ deleted: [] });
+  if (!hasSupabase(context.env)) return json({ deleted: ids, backend: "local-fallback" });
+
+  const encoded = ids.map((id) => `"${String(id).replaceAll('"', '\\"')}"`).join(",");
+  await supabase(context.env, `intel_items?id=in.(${encoded})`, {
+    method: "DELETE",
+    headers: { prefer: "return=minimal" }
+  });
+  return json({ deleted: ids, backend: "supabase" });
 }
 
 async function askPmAgent(context) {

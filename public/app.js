@@ -1019,7 +1019,7 @@ function renderCompanyWorkspace() {
         <button data-company-tab="model" type="button">批量识别Ticker</button>
         <button data-company-tab="deep" type="button">AI伙伴</button>
         <button data-company-tab="model" type="button">上传模型</button>
-        <button data-open-material type="button">添加材料</button>
+        <button data-upload-current-company type="button">添加材料</button>
         <button data-open-folder-for-company="${escapeHtml(company.id)}" type="button">普通文件夹</button>
       </div>
     </header>
@@ -1771,6 +1771,11 @@ document.addEventListener("click", (event) => {
   const openMaterial = event.target.closest("[data-open-material]");
   if (openMaterial) {
     createMaterial();
+    return;
+  }
+  const uploadCurrentCompany = event.target.closest("[data-upload-current-company]");
+  if (uploadCurrentCompany) {
+    els.fileInput.click();
     return;
   }
   const openCompanyFolder = event.target.closest("[data-open-folder-for-company]");
