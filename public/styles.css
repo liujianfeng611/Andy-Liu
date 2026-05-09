@@ -227,7 +227,7 @@ body.company-mode .terminal-shell {
 .note-stream {
   flex: 1;
   overflow: auto;
-  padding: 0 24px 16px;
+  padding: 0 16px 16px;
 }
 
 .note-item {
@@ -250,6 +250,20 @@ body.company-mode .terminal-shell {
   padding-left: 10px;
 }
 
+.note-item.uploaded-note {
+  grid-template-columns: minmax(0, 1fr);
+  border-left-width: 0;
+  border-radius: 6px;
+  padding: 13px 8px;
+}
+
+.note-item.uploaded-note:hover,
+.note-item.uploaded-note.active {
+  border-left-color: transparent;
+  background: #27231f;
+  padding-left: 8px;
+}
+
 .note-select {
   display: grid;
   gap: 6px;
@@ -265,7 +279,7 @@ body.company-mode .terminal-shell {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #ddd8d1;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 780;
 }
 
@@ -287,6 +301,19 @@ body.company-mode .terminal-shell {
   color: #c9c0b8;
   padding: 3px 8px;
   font-size: 12px;
+}
+
+.tag.wide {
+  max-width: 210px;
+}
+
+.note-badge {
+  border-radius: 5px;
+  background: #47260e;
+  color: #ff8a22;
+  padding: 3px 7px;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .empty-list {

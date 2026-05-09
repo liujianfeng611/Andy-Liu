@@ -330,6 +330,42 @@ function filteredItems() {
     .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
 }
 
+function itemCompany(item) {
+  return state.companies.find((company) => company.id === item.companyId) || null;
+}
+
+function isUploadedNote(item) {
+  if (!isVisibleMaterial(item)) return false;
+  if (item.type !== "local" && item.type !== "ai") return false;
+  if (/新材料/.test(item.title || "") && /等待录入 Source/.test(item.summary || "")) return false;
+  return Boolean(item.folderId || item.sourceText || item.viewText || item.summary || item.title);
+}
+
+function noteListItems() {
+  const query = String(state.searchQuery || "").trim().toLowerCase();
+  return state.items
+    .filter(isUploadedNote)
+    .filter((item) => {
+      if (!query) return true;
+      const company = itemCompany(item);
+      const haystack = [
+        item.title,
+        readableText(item.summary),
+        materialSource(item),
+        materialView(item),
+        item.source,
+        item.form,
+        item.folderId,
+        company?.ticker,
+        company?.name,
+        company ? inferIndustry(company) : "",
+        ...materialTags(item)
+      ].join(" ").toLowerCase();
+      return haystack.includes(query);
+    })
+    .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
+}
+
 function companyCloudItems(companyId) {
   return state.items
     .filter(isVisibleMaterial)
@@ -387,29 +423,28 @@ function renderNotes() {
     return;
   }
 
-  const rows = filteredItems().slice(0, 18);
-  const selectedId = selectedItem()?.id;
-  const company = activeCompany();
-  const companyLabel = escapeHtml(company.ticker || company.name);
-  const isLoading = autoRefreshingCompanies.has(company.id);
-  const emptyText = isLoading
-    ? `正在从 open internet 抓取 ${companyLabel} 新闻...`
-    : state.searchQuery
-    ? `没有找到 ${companyLabel} 中匹配“${escapeHtml(state.searchQuery)}”的材料。切换公司会自动清空搜索。`
-    : `${companyLabel} 暂时没有可显示的新闻，正在等待公开互联网抓取。`;
+  const rows = noteListItems().slice(0, 40);
+  const selectedId = state.activeItemId || selectedItem()?.id;
+  const emptyText = state.searchQuery
+    ? `没有找到匹配“${escapeHtml(state.searchQuery)}”的上传笔记。`
+    : `还没有上传笔记。可以在公司页点击“添加材料”上传文件，或在右侧资料入口新增材料。`;
 
   els.noteStream.innerHTML = rows.map((item) => {
-    const link = materialUrl(item);
+    const company = itemCompany(item);
+    const companyTag = company?.ticker || item.source || "NOTE";
+    const secondaryTag = company ? inferIndustry(company) : materialTags(item)[0] || item.folderId || "";
+    const ideaCount = item.viewText || item.summary ? 1 : 0;
     return `
-    <article class="note-item ${item.id === selectedId ? "active" : ""}">
+    <article class="note-item uploaded-note ${item.id === selectedId ? "active" : ""}">
       <button class="note-select" data-item-id="${escapeHtml(item.id)}" type="button">
       <div class="note-title">${escapeHtml(readableText(item.title))}</div>
       <div class="note-meta">
         <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
-        <span class="tag">${escapeHtml(item.source || item.form || "OPEN")}</span>
+        ${ideaCount ? `<span class="note-badge">▱ ${ideaCount}</span>` : ""}
+        <span class="tag">${escapeHtml(companyTag)}</span>
+        ${secondaryTag ? `<span class="tag wide">${escapeHtml(secondaryTag)}</span>` : ""}
       </div>
       </button>
-      ${link ? `<button class="note-link" data-open-url="${escapeHtml(link)}" type="button">原文</button>` : ""}
     </article>
   `;
   }).join("") || `<div class="empty-list">${emptyText}</div>`;
@@ -1804,6 +1839,11 @@ document.querySelectorAll("[data-rail-view]").forEach((button) => {
 els.noteStream.addEventListener("click", (event) => {
   const button = event.target.closest("[data-item-id]");
   if (!button) return;
+  const item = state.items.find((row) => row.id === button.dataset.itemId);
+  if (item?.companyId) {
+    state.activeCompanyId = item.companyId;
+    state.companyWorkspaceTab = "home";
+  }
   state.activeItemId = button.dataset.itemId;
   saveState();
   render();
