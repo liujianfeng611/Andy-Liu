@@ -362,10 +362,14 @@ function itemCompany(item) {
 }
 
 function isUploadedNote(item) {
+  if (!item) return false;
   if (!isVisibleMaterial(item)) return false;
-  if (item.type !== "local" && item.type !== "ai") return false;
   if (/新材料/.test(item.title || "") && /等待录入 Source/.test(item.summary || "")) return false;
-  return Boolean(item.folderId || item.sourceText || item.viewText || item.summary || item.title);
+  const hasReadableBody = Boolean(item.sourceText || item.rawText || item.viewText);
+  const uploadedType = ["local", "ai", "note", "article", "transcript", "podcast"].includes(item.type);
+  const uploadedTag = materialTags(item).some((tag) => /上传|笔记|文章|播客|转录|纪要|云端|导入/i.test(tag));
+  if (item.type === "open" || item.type === "filing") return hasReadableBody || uploadedTag;
+  return Boolean(uploadedType || item.folderId || hasReadableBody || uploadedTag);
 }
 
 function noteListItems() {
@@ -397,6 +401,16 @@ function selectedNoteItem() {
   const active = state.items.find((item) => item.id === state.activeItemId);
   if (active && isUploadedNote(active)) return active;
   return noteListItems()[0] || null;
+}
+
+function noteTypeLabel(item) {
+  const tags = materialTags(item).join(" ");
+  if (/播客/i.test(tags)) return "播客";
+  if (/纪要|会议/i.test(tags)) return "纪要";
+  if (/转录/i.test(tags)) return "转录";
+  if (item?.type === "ai") return "AI";
+  if (item?.type === "local" || item?.type === "article") return "文章";
+  return item?.type || "笔记";
 }
 
 function companyCloudItems(companyId) {
@@ -1106,7 +1120,9 @@ function renderNoteReader() {
   const company = itemCompany(item);
   const activeTab = noteReaderTabs.some(([id]) => id === state.noteReaderTab) ? state.noteReaderTab : "transcript";
   const tag = company?.ticker || item.source || "NOTE";
-  const tags = [...new Set([tag, ...materialTags(item), item.type].filter(Boolean))].slice(0, 5);
+  const extraTags = materialTags(item);
+  const visibleTags = [...new Set([tag, ...extraTags.slice(0, 2), noteTypeLabel(item)].filter(Boolean))].slice(0, 4);
+  const extraCount = Math.max(0, extraTags.length - 2);
   const title = readableText(item.title || "未命名笔记");
 
   els.companyWorkspace.hidden = false;
@@ -1118,8 +1134,10 @@ function renderNoteReader() {
         </div>
         <div class="note-reader-status">
           <span>● 待归档</span>
-          ${tags.map((row) => `<span>${escapeHtml(row)}</span>`).join("")}
+          ${visibleTags.map((row) => `<span>${escapeHtml(row)}</span>`).join("")}
+          ${extraCount ? `<span>+${extraCount}</span>` : ""}
           <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
+          <span>▱ 归档</span>
           <button type="button">✓ 归档</button>
         </div>
       </header>
@@ -1168,7 +1186,8 @@ function renderCompanyWorkspaceBody(tab, ctx) {
 }
 
 function renderCompanyWorkspace() {
-  const isNoteReader = state.railView === "notes" && state.readerMode === "note";
+  const active = state.items.find((item) => item.id === state.activeItemId);
+  const isNoteReader = state.railView === "notes" && (state.readerMode === "note" || isUploadedNote(active));
   document.body.classList.toggle("note-reader-mode", isNoteReader);
   if (isNoteReader && renderNoteReader()) return;
 

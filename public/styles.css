@@ -567,6 +567,10 @@ body.note-reader-mode .agent-tabs {
   display: none;
 }
 
+body.note-reader-mode .main-stage {
+  padding: 0 22px 22px;
+}
+
 .company-workspace {
   display: grid;
   gap: 10px;
@@ -1288,7 +1292,7 @@ body.note-reader-mode .agent-tabs {
 }
 
 .note-reader {
-  min-height: calc(100vh - 36px);
+  min-height: 100vh;
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 0;
@@ -1299,13 +1303,13 @@ body.note-reader-mode .agent-tabs {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  min-height: 62px;
+  min-height: 66px;
   border-bottom: 1px solid var(--line);
 }
 
 .note-reader-title h1 {
   color: #f1ede8;
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1.25;
   margin: 0;
 }
@@ -1317,6 +1321,13 @@ body.note-reader-mode .agent-tabs {
   gap: 8px;
   color: var(--muted);
   white-space: nowrap;
+  max-width: 46vw;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.note-reader-status::-webkit-scrollbar {
+  display: none;
 }
 
 .note-reader-status span,
@@ -1339,10 +1350,15 @@ body.note-reader-mode .agent-tabs {
 .note-reader-tabs {
   display: flex;
   align-items: center;
-  gap: 24px;
-  min-height: 62px;
+  gap: 26px;
+  min-height: 68px;
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.note-reader-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .note-reader-tabs button {
@@ -1350,9 +1366,9 @@ body.note-reader-mode .agent-tabs {
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-  min-height: 62px;
+  min-height: 68px;
   padding: 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -1367,7 +1383,7 @@ body.note-reader-mode .agent-tabs {
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 16px;
-  margin: 18px 0 24px;
+  margin: 18px 0 26px;
   border: 1px solid #175b42;
   border-radius: 14px;
   background: #0f2a1d;
@@ -1423,12 +1439,12 @@ body.note-reader-mode .agent-tabs {
 }
 
 .note-reader-transcript {
-  max-width: 1560px;
+  max-width: none;
   padding: 4px 0 42px;
   color: #ded8d1;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 650;
-  line-height: 1.72;
+  line-height: 1.65;
 }
 
 .note-reader-transcript p {
