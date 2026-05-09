@@ -6,6 +6,8 @@ const defaultState = {
   searchQuery: "",
   editorTab: "source",
   companyWorkspaceTab: "home",
+  noteReaderTab: "transcript",
+  readerMode: "company",
   railView: "notes",
   folderPath: [],
   customFolders: [],
@@ -67,6 +69,21 @@ const companyWorkspaceTabs = [
   ["questions", "问题清单"],
   ["deep", "深研"],
   ["continuous", "连续研究"],
+  ["transcript", "Transcript"]
+];
+
+const noteReaderTabs = [
+  ["analyst", "小分析师"],
+  ["idea", "想法"],
+  ["port", "Port"],
+  ["coverage", "Coverage"],
+  ["note-taker", "Note Taker"],
+  ["critic", "批判者"],
+  ["numbers", "Numbers"],
+  ["debate", "论点"],
+  ["research", "研究包"],
+  ["notebook", "NotebookLM"],
+  ["handler", "处理者"],
   ["transcript", "Transcript"]
 ];
 
@@ -374,6 +391,12 @@ function noteListItems() {
       return haystack.includes(query);
     })
     .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
+}
+
+function selectedNoteItem() {
+  const active = state.items.find((item) => item.id === state.activeItemId);
+  if (active && isUploadedNote(active)) return active;
+  return noteListItems()[0] || null;
 }
 
 function companyCloudItems(companyId) {
@@ -717,6 +740,12 @@ function renderWorkspaceTabs(activeTab) {
   `).join("");
 }
 
+function renderNoteReaderTabs(activeTab) {
+  return noteReaderTabs.map(([id, label]) => `
+    <button class="${activeTab === id ? "active" : ""}" data-note-reader-tab="${id}" type="button">${label}</button>
+  `).join("");
+}
+
 function evidenceBuckets(rows) {
   const labels = ["需求 / 增长", "涨价 / 变现", "利润率 / 经营杠杆", "竞争 / 份额", "反证 / 风险", "催化剂"];
   return labels.map((label) => ({
@@ -1039,6 +1068,88 @@ function renderCompanyTranscript(ctx) {
   `;
 }
 
+function renderNoteReaderBody(item, activeTab) {
+  const transcript = materialTranscript(item);
+  const fallback = "还没有 transcript 内容。上传 txt/md/html/csv 文件可以直接读取；PDF/Excel/Word 目前先保存为文件记录，后续会接解析。";
+  if (activeTab === "transcript") {
+    return `
+      <article class="note-reader-transcript">
+        ${escapeHtml(transcript || fallback).split("\n").map((line) => `<p>${line || "&nbsp;"}</p>`).join("")}
+      </article>
+    `;
+  }
+
+  const tabLabel = noteReaderTabs.find(([id]) => id === activeTab)?.[1] || "分析";
+  return `
+    <section class="note-reader-placeholder">
+      <strong>${escapeHtml(tabLabel)}</strong>
+      <p>这个视图会基于当前笔记生成结构化分析。现在先把原文放在 Transcript，便于你先阅读和归档。</p>
+      <button data-note-reader-tab="transcript" type="button">查看 Transcript</button>
+    </section>
+  `;
+}
+
+function renderNoteReader() {
+  const item = selectedNoteItem();
+  document.body.classList.add("company-mode");
+  document.body.classList.add("note-reader-mode");
+  if (!item) {
+    els.companyWorkspace.innerHTML = `
+      <section class="note-reader-empty">
+        <h1>还没有上传笔记</h1>
+        <p>上传或保存一条研究笔记后，左栏会按时间显示标题，点击后在这里阅读 Transcript。</p>
+      </section>
+    `;
+    return true;
+  }
+
+  const company = itemCompany(item);
+  const activeTab = noteReaderTabs.some(([id]) => id === state.noteReaderTab) ? state.noteReaderTab : "transcript";
+  const tag = company?.ticker || item.source || "NOTE";
+  const tags = [...new Set([tag, ...materialTags(item), item.type].filter(Boolean))].slice(0, 5);
+  const title = readableText(item.title || "未命名笔记");
+
+  els.companyWorkspace.hidden = false;
+  els.companyWorkspace.innerHTML = `
+    <article class="note-reader">
+      <header class="note-reader-head">
+        <div class="note-reader-title">
+          <h1>${escapeHtml(title)}</h1>
+        </div>
+        <div class="note-reader-status">
+          <span>● 待归档</span>
+          ${tags.map((row) => `<span>${escapeHtml(row)}</span>`).join("")}
+          <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
+          <button type="button">✓ 归档</button>
+        </div>
+      </header>
+
+      <nav class="note-reader-tabs">
+        ${renderNoteReaderTabs(activeTab)}
+      </nav>
+
+      <section class="note-reader-progress">
+        <div>
+          <strong>● 待归档&nbsp;&nbsp; 分析和 Numbers 已完成</strong>
+          <p>可以归档到对应公司/行业文件夹，后面公司页会把它当作研究材料。</p>
+        </div>
+        <div class="note-reader-steps">
+          <span>● 转录</span>
+          <span>● 处理</span>
+          <span>● 分析</span>
+          <span>● 数字</span>
+          <span class="warn">● 批判</span>
+          <span class="muted">● 归档</span>
+        </div>
+        <button type="button">✓ 归档</button>
+      </section>
+
+      ${renderNoteReaderBody(item, activeTab)}
+    </article>
+  `;
+  return true;
+}
+
 function renderCompanyWorkspaceBody(tab, ctx) {
   const map = {
     home: renderCompanyHome,
@@ -1057,6 +1168,10 @@ function renderCompanyWorkspaceBody(tab, ctx) {
 }
 
 function renderCompanyWorkspace() {
+  const isNoteReader = state.railView === "notes" && state.readerMode === "note";
+  document.body.classList.toggle("note-reader-mode", isNoteReader);
+  if (isNoteReader && renderNoteReader()) return;
+
   const company = activeCompany();
   const rows = activeItems();
   const localDocs = companyCloudItems(company.id);
@@ -1075,6 +1190,7 @@ function renderCompanyWorkspace() {
 
   els.companyWorkspace.hidden = state.railView === "folders";
   document.body.classList.toggle("company-mode", state.railView !== "folders");
+  document.body.classList.remove("note-reader-mode");
   if (state.railView === "folders") {
     els.companyWorkspace.innerHTML = "";
     return;
@@ -1335,6 +1451,7 @@ function selectCompany(companyId) {
   state.activeItemId = "";
   state.searchQuery = "";
   state.companyWorkspaceTab = "home";
+  state.readerMode = "company";
   state.railView = "notes";
   saveState();
   render();
@@ -1793,9 +1910,18 @@ document.addEventListener("click", (event) => {
   openExternalUrl(url);
 });
 document.addEventListener("click", (event) => {
+  const noteReaderTab = event.target.closest("[data-note-reader-tab]");
+  if (noteReaderTab) {
+    state.noteReaderTab = noteReaderTab.dataset.noteReaderTab;
+    state.readerMode = "note";
+    saveState();
+    render();
+    return;
+  }
   const companyTab = event.target.closest("[data-company-tab]");
   if (companyTab) {
     state.companyWorkspaceTab = companyTab.dataset.companyTab;
+    state.readerMode = "company";
     saveState();
     render();
     return;
@@ -1817,6 +1943,7 @@ document.addEventListener("click", (event) => {
   }
   const folder = event.target.closest("[data-folder-company]");
   if (folder) {
+    state.readerMode = "company";
     selectCompany(folder.dataset.folderCompany);
     return;
   }
@@ -1878,7 +2005,8 @@ els.noteStream.addEventListener("click", (event) => {
   if (item?.companyId) {
     state.activeCompanyId = item.companyId;
   }
-  state.companyWorkspaceTab = "transcript";
+  state.readerMode = "note";
+  state.noteReaderTab = "transcript";
   state.activeItemId = button.dataset.itemId;
   saveState();
   render();
