@@ -1479,6 +1479,18 @@ body.note-reader-mode .main-stage {
   font-weight: 900;
 }
 
+.transcript-import-box {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.transcript-import-box small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .view-stream strong,
 .view-stream span {
   display: block;

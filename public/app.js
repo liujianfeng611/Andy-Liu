@@ -127,6 +127,7 @@ const els = {
   folderBoard: document.querySelector("#folderBoard"),
   companyWorkspace: document.querySelector("#companyWorkspace"),
   folderUploadInput: document.querySelector("#folderUploadInput"),
+  transcriptFileInput: document.querySelector("#transcriptFileInput"),
   regionalMarkets: document.querySelector("#regionalMarkets"),
   assetMarkets: document.querySelector("#assetMarkets"),
   companyList: document.querySelector("#companyList"),
@@ -470,6 +471,13 @@ function materialTranscript(item) {
     readableText(item?.summary)
   ].map(cleanTranscriptText).filter(Boolean).join("\n\n").trim();
   return cleanTranscriptText(text);
+}
+
+function transcriptNeedsFile(item, transcript) {
+  if (!item) return false;
+  const text = cleanTranscriptText(transcript || "");
+  if (!text) return true;
+  return /暂不.*解析正文|不能直接读取正文|编码无法可靠识别|读取正文时失败|解析文件内容失败|没有提取到/.test(text);
 }
 
 function materialTags(item) {
@@ -1241,11 +1249,22 @@ function renderCompanyTranscript(ctx) {
 
 function renderNoteReaderBody(item, activeTab) {
   const transcript = materialTranscript(item);
-  const fallback = "还没有 transcript 内容。上传 txt/md/html/csv 文件可以直接读取；PDF/Excel/Word 目前先保存为文件记录，后续会接解析。";
+  const needsFile = transcriptNeedsFile(item, transcript);
+  const fallback = "还没有 Transcript 内容。请选择这条笔记对应的原文件，系统会读取 PDF / Word / 文本内容并保存到这里。";
   if (activeTab === "transcript") {
+    if (needsFile) {
+      return `
+        <section class="note-reader-placeholder transcript-import-box">
+          <strong>读取文件内容</strong>
+          <p>${escapeHtml(transcript || fallback)}</p>
+          <button data-attach-transcript-file type="button">选择原文件并显示内容</button>
+          <small>支持 PDF、Word docx、txt、md、csv、json、html。扫描版 PDF 可能需要 OCR，旧版 .doc 请先另存为 .docx。</small>
+        </section>
+      `;
+    }
     return `
       <article class="note-reader-transcript">
-        ${escapeHtml(transcript || fallback).split("\n").map((line) => `<p>${line || "&nbsp;"}</p>`).join("")}
+        ${escapeHtml(transcript).split("\n").map((line) => `<p>${line || "&nbsp;"}</p>`).join("")}
       </article>
     `;
   }
@@ -2075,6 +2094,45 @@ async function uploadFilesToCustomFolder(files, folderId) {
   render();
 }
 
+async function attachTranscriptFile(files) {
+  const file = [...(files || [])][0];
+  const item = selectedNoteItem();
+  if (!file || !item) return;
+
+  const buttonText = "正在读取文件内容...";
+  const previousSummary = item.summary || "";
+  item.summary = buttonText;
+  state.readerMode = "note";
+  state.noteReaderTab = "transcript";
+  saveState();
+  render();
+
+  let upload = { text: "", readable: false, message: "" };
+  try {
+    upload = await readUploadText(file);
+  } catch (error) {
+    upload = { text: "", readable: false, message: `${file.name} 读取失败：${error.message || "无法解析文件"}` };
+  }
+
+  const text = upload.text || upload.message || `${file.name} 已选择，但没有读取到正文。`;
+  item.sourceText = text;
+  item.rawText = "";
+  item.viewText = item.viewText || "";
+  item.summary = upload.readable ? text.replace(/\s+/g, " ").trim().slice(0, 280) : text;
+  item.type = item.type || "local";
+  item.folderId = item.folderId || "cloud";
+  item.source = item.source || itemCompany(item)?.ticker || "LOCAL";
+  item.tags = [...new Set([...materialTags(item), upload.readable ? "可读正文" : "待解析", fileKind(file).toUpperCase()])].slice(0, 12);
+  item.publishedAt = new Date().toISOString();
+  item.createdAt = item.createdAt || item.publishedAt;
+  if (!upload.readable && previousSummary && previousSummary !== buttonText) item.viewText = item.viewText || previousSummary;
+
+  els.transcriptFileInput.value = "";
+  saveState();
+  render();
+  persistItems([item]);
+}
+
 els.refreshBtn.addEventListener("click", refreshOpenInfo);
 document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-open-url]");
@@ -2157,6 +2215,11 @@ document.addEventListener("click", (event) => {
     els.fileInput.click();
     return;
   }
+  const attachTranscript = event.target.closest("[data-attach-transcript-file]");
+  if (attachTranscript) {
+    els.transcriptFileInput.click();
+    return;
+  }
   const openCompanyFolder = event.target.closest("[data-open-folder-for-company]");
   if (openCompanyFolder) {
     state.railView = "folders";
@@ -2194,6 +2257,7 @@ els.searchInput.addEventListener("input", (event) => {
 });
 els.fileInput.addEventListener("change", (event) => importFiles(event.target.files));
 els.folderUploadInput.addEventListener("change", (event) => uploadFilesToCustomFolder(event.target.files, event.target.dataset.folderId));
+els.transcriptFileInput.addEventListener("change", (event) => attachTranscriptFile(event.target.files));
 els.saveCompanyBtn.addEventListener("click", updateActiveCompanyFromForm);
 els.saveNoteBtn.addEventListener("click", saveResearchNote);
 els.newMaterialBtn.addEventListener("click", createMaterial);
