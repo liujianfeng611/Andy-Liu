@@ -1611,6 +1611,64 @@ body.note-reader-mode .main-stage {
   font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.processed-placeholder {
+  min-height: 420px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 16px;
+  line-height: 1.6;
+}
+
+.processed-note {
+  display: grid;
+  gap: 12px;
+  max-height: 65vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.processed-note section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #11100e;
+  padding: 12px 14px;
+}
+
+.processed-note h3 {
+  margin: 0 0 8px;
+  color: #eee8df;
+  font-size: 15px;
+}
+
+.processed-note ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.processed-note li {
+  color: #d9d2ca;
+  line-height: 1.55;
+  font-size: 14px;
+}
+
+.processed-note .conclusion-section {
+  border-color: #145f83;
+  background: #0c1c24;
+}
+
+.processed-note .facts-section {
+  border-color: #176449;
+  background: #0d1e17;
+}
+
+.processed-note .opinion-section {
+  border-color: #7c5a13;
+  background: #211a0d;
+}
+
 .view-stream strong,
 .view-stream span {
   display: block;

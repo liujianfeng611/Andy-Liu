@@ -1382,11 +1382,58 @@ function renderNoteProcessor(item, transcript) {
         </article>
         <article>
           <div class="processor-section-title"><strong>清洗结果</strong><span>${processed ? "已生成" : "等待处理"}</span></div>
-          <pre>${escapeHtml(processed || "点击“清洗当前笔记”后，会在这里生成：核心结论、事实证据、投资含义、待验证问题、公司/行业标签和可归档摘要。")}</pre>
+          ${processed ? renderProcessedNote(processed) : `<div class="processed-placeholder">点击“清洗当前笔记”后，会按 bullet point 生成：核心结论、Facts（原文事实）、Opinion / 判断、重要数字与实体、待验证问题和可归档摘要。</div>`}
         </article>
       </div>
     </section>
   `;
+}
+
+function renderProcessedNote(markdown) {
+  const lines = String(markdown || "").split(/\r?\n/);
+  const sections = [];
+  let current = { title: "清洗结果", bullets: [], loose: [] };
+  const pushCurrent = () => {
+    if (current.bullets.length || current.loose.length) sections.push(current);
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+    const heading = line.match(/^#{1,3}\s+(.+)$/);
+    if (heading) {
+      pushCurrent();
+      current = { title: heading[1].trim(), bullets: [], loose: [] };
+      return;
+    }
+    const bullet = line.match(/^[-*•]\s+(.+)$/);
+    if (bullet) {
+      current.bullets.push(bullet[1].trim());
+    } else {
+      current.loose.push(line.replace(/^\d+[.)]\s+/, ""));
+    }
+  });
+  pushCurrent();
+
+  return `
+    <div class="processed-note">
+      ${sections.map((section) => `
+        <section class="${processedSectionClass(section.title)}">
+          <h3>${escapeHtml(section.title)}</h3>
+          ${section.bullets.length ? `<ul>${section.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>` : ""}
+          ${section.loose.length ? `<ul>${section.loose.map((row) => `<li>${escapeHtml(row)}</li>`).join("")}</ul>` : ""}
+        </section>
+      `).join("")}
+    </div>
+  `;
+}
+
+function processedSectionClass(title) {
+  const text = String(title || "").toLowerCase();
+  if (/fact|事实/.test(text)) return "facts-section";
+  if (/opinion|判断|观点|推论/.test(text)) return "opinion-section";
+  if (/结论/.test(text)) return "conclusion-section";
+  return "";
 }
 
 function renderNoteReader() {
