@@ -52,6 +52,16 @@ function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function cleanModelText(value) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function cleanHtmlText(value) {
   return cleanText(
     decodeXml(value)
@@ -317,7 +327,7 @@ async function callGoogleModel(apiKey, model, prompt) {
   });
   if (!response.ok) throw new Error(`Google AI ${response.status}: ${await response.text()}`);
   const data = await response.json();
-  return cleanText(data.candidates?.[0]?.content?.parts?.map((part) => part.text).join("\n")) || "模型暂无返回。";
+  return cleanModelText(data.candidates?.[0]?.content?.parts?.map((part) => part.text).join("\n")) || "模型暂无返回。";
 }
 
 async function callOpenAiResponses(apiKey, model, prompt, baseUrl = "https://api.openai.com/v1") {
@@ -331,7 +341,7 @@ async function callOpenAiResponses(apiKey, model, prompt, baseUrl = "https://api
   });
   if (!response.ok) throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
   const data = await response.json();
-  return cleanText(
+  return cleanModelText(
     data.output_text
     || data.output?.flatMap((item) => item.content || []).map((part) => part.text || part.output_text || "").join("\n")
   ) || "模型暂无返回。";
@@ -356,7 +366,7 @@ async function callOpenAiCompatible(apiKey, model, prompt, url, label) {
   });
   if (!response.ok) throw new Error(`${label} ${response.status}: ${await response.text()}`);
   const data = await response.json();
-  return cleanText(data.choices?.[0]?.message?.content || data.output_text || data.text) || "模型暂无返回。";
+  return cleanModelText(data.choices?.[0]?.message?.content || data.output_text || data.text) || "模型暂无返回。";
 }
 
 async function fetchJson(url, headers = {}) {
