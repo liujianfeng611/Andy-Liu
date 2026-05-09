@@ -23,6 +23,7 @@ export async function onRequest(context) {
     if (route === "items" && context.request.method === "POST") return upsertItems(context);
     if (route === "items" && context.request.method === "DELETE") return deleteItems(context);
     if (route === "ask" && context.request.method === "POST") return askPmAgent(context);
+    if (route === "process-note" && context.request.method === "POST") return processNote(context);
     if (route === "open-web" && context.request.method === "GET") return getOpenWeb(url);
     if (route === "sec" && context.request.method === "GET") return getSec(url);
     return json({ error: "Unknown API route" }, 404);
@@ -233,6 +234,119 @@ async function generatePmAnswer(env, question, company, items) {
   if (!response.ok) throw new Error(`Google AI ${response.status}: ${await response.text()}`);
   const data = await response.json();
   return cleanText(data.candidates?.[0]?.content?.parts?.map((part) => part.text).join("\n")) || "AI 暂无返回。";
+}
+
+function noteProcessPrompt(title, source) {
+  return [
+    "你是基金经理的投研笔记处理器。请把原始笔记清洗成易于分析、可归档、可复盘的中文材料。",
+    "不要编造原文没有的信息。保留关键事实、数字、人物、公司、时间、争议点和不确定性。",
+    "输出格式固定如下：",
+    "## 一句话结论",
+    "## 核心事实",
+    "## 投资含义",
+    "## 需要验证的问题",
+    "## 相关公司/行业/标签",
+    "## 可归档摘要",
+    `标题：${title || "未命名笔记"}`,
+    "原始笔记：",
+    source
+  ].join("\n");
+}
+
+function providerEnvKey(provider) {
+  return {
+    google: "GOOGLE_AI_API_KEY",
+    openai: "OPENAI_API_KEY",
+    glm: "GLM_API_KEY",
+    minimax: "MINIMAX_API_KEY",
+    mimo: "MIMO_API_KEY"
+  }[provider];
+}
+
+function providerBaseUrl(env, provider) {
+  return {
+    glm: env.GLM_BASE_URL || "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    minimax: env.MINIMAX_BASE_URL || "https://api.minimax.io/v1/chat/completions",
+    mimo: env.MIMO_BASE_URL || "https://api.mimo.ai/v1/chat/completions"
+  }[provider];
+}
+
+async function processNote(context) {
+  const payload = await context.request.json();
+  const provider = cleanText(payload.provider);
+  const model = cleanText(payload.model);
+  const title = cleanText(payload.title);
+  const source = String(payload.source || "").trim();
+  if (!provider || !model || !source) return json({ error: "Missing provider, model, or source" }, 400);
+
+  const envKey = providerEnvKey(provider);
+  const apiKey = cleanText(payload.apiKey) || (envKey ? context.env[envKey] : "");
+  if (!apiKey) return json({ error: `Missing API key. Set ${envKey || "provider API key"} in Cloudflare, or paste it in the processor panel.` }, 400);
+
+  const prompt = noteProcessPrompt(title, source.slice(0, 120000));
+  let result = "";
+  if (provider === "google") {
+    result = await callGoogleModel(apiKey, model, prompt);
+  } else if (provider === "openai") {
+    result = await callOpenAiResponses(apiKey, model, prompt, context.env.OPENAI_BASE_URL);
+  } else {
+    result = await callOpenAiCompatible(apiKey, model, prompt, providerBaseUrl(context.env, provider), provider);
+  }
+
+  return json({ result, model, provider, processedAt: new Date().toISOString() });
+}
+
+async function callGoogleModel(apiKey, model, prompt) {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-goog-api-key": apiKey
+    },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  });
+  if (!response.ok) throw new Error(`Google AI ${response.status}: ${await response.text()}`);
+  const data = await response.json();
+  return cleanText(data.candidates?.[0]?.content?.parts?.map((part) => part.text).join("\n")) || "模型暂无返回。";
+}
+
+async function callOpenAiResponses(apiKey, model, prompt, baseUrl = "https://api.openai.com/v1") {
+  const response = await fetch(`${baseUrl}/responses`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({ model, input: prompt })
+  });
+  if (!response.ok) throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+  const data = await response.json();
+  return cleanText(
+    data.output_text
+    || data.output?.flatMap((item) => item.content || []).map((part) => part.text || part.output_text || "").join("\n")
+  ) || "模型暂无返回。";
+}
+
+async function callOpenAiCompatible(apiKey, model, prompt, url, label) {
+  if (!url) throw new Error(`${label} endpoint is not configured`);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: "你是严谨的投研笔记清洗处理器。" },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.2
+    })
+  });
+  if (!response.ok) throw new Error(`${label} ${response.status}: ${await response.text()}`);
+  const data = await response.json();
+  return cleanText(data.choices?.[0]?.message?.content || data.output_text || data.text) || "模型暂无返回。";
 }
 
 async function fetchJson(url, headers = {}) {

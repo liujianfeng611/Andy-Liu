@@ -87,6 +87,16 @@ const noteReaderTabs = [
   ["transcript", "Transcript"]
 ];
 
+const noteProcessorModels = [
+  { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite", provider: "google" },
+  { id: "gemini-3.1-pro", label: "Gemini 3.1 Pro", provider: "google" },
+  { id: "gpt-5.5", label: "GPT 5.5", provider: "openai" },
+  { id: "gpt-5.4-mini", label: "GPT 5.4 Mini", provider: "openai" },
+  { id: "glm-5.1", label: "GLM 5.1", provider: "glm" },
+  { id: "minimax-m2.7", label: "MiniMax M2.7", provider: "minimax" },
+  { id: "mimo-v2.5-pro", label: "Mimo v2.5 Pro", provider: "mimo" }
+];
+
 const regionalMarkets = [
   { name: "🇺🇸 美国", quotes: [["S&P 500", "7,228", "-0.02"], ["Dow", "49,293", "-0.42"], ["Nasdaq", "25,130", "+0.06"]] },
   { name: "🇭🇰 中港", quotes: [["恒生", "26,096", "+1.24"], ["恒生科技", "4.87", "+2.05"], ["上证", "4,112", "+0.11"]] },
@@ -114,6 +124,7 @@ const queueTemplates = [
 let state = loadState();
 let backendStatus = "local";
 const autoRefreshingCompanies = new Set();
+let noteProcessorBusy = false;
 
 const els = {
   noteStream: document.querySelector("#noteStream"),
@@ -380,7 +391,8 @@ async function readUploadText(file) {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(`/api/${path}`, {
+  const base = window.location.protocol === "file:" ? "https://andy-workstation.pages.dev" : "";
+  const response = await fetch(`${base}/api/${path}`, {
     ...options,
     headers: {
       "content-type": "application/json",
@@ -1303,12 +1315,76 @@ function renderNoteReaderBody(item, activeTab) {
     `;
   }
 
+  if (activeTab === "handler") {
+    return renderNoteProcessor(item, transcript);
+  }
+
   const tabLabel = noteReaderTabs.find(([id]) => id === activeTab)?.[1] || "分析";
   return `
     <section class="note-reader-placeholder">
       <strong>${escapeHtml(tabLabel)}</strong>
       <p>这个视图会基于当前笔记生成结构化分析。现在先把原文放在 Transcript，便于你先阅读和归档。</p>
       <button data-note-reader-tab="transcript" type="button">查看 Transcript</button>
+    </section>
+  `;
+}
+
+function processorKeyStorageId(provider) {
+  return `andy-workstation-${provider}-api-key`;
+}
+
+function processorStoredKey(provider) {
+  try {
+    return localStorage.getItem(processorKeyStorageId(provider)) || "";
+  } catch {
+    return "";
+  }
+}
+
+function renderNoteProcessor(item, transcript) {
+  const currentModel = localStorage.getItem("andy-workstation-note-processor-model") || noteProcessorModels[0].id;
+  const selected = noteProcessorModels.find((model) => model.id === currentModel) || noteProcessorModels[0];
+  const savedKey = processorStoredKey(selected.provider);
+  const processed = materialView(item);
+  const source = transcript || materialSource(item) || readableText(item.summary);
+  return `
+    <section class="processor-panel">
+      <div class="processor-head">
+        <div>
+          <strong>处理者</strong>
+          <p>选择模型，把当前原始笔记清洗成适合投研分析的结构化材料。</p>
+        </div>
+        <span>${escapeHtml(selected.label)}</span>
+      </div>
+
+      <div class="processor-controls">
+        <label>模型
+          <select id="processorModelSelect">
+            ${noteProcessorModels.map((model) => `
+              <option value="${escapeHtml(model.id)}" ${model.id === selected.id ? "selected" : ""}>${escapeHtml(model.label)}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label>API Key（可留空使用云端环境变量）
+          <input id="processorApiKeyInput" type="password" placeholder="${savedKey ? "已保存到本机浏览器" : "粘贴当前模型供应商的 key"}" value="" />
+        </label>
+        <label class="processor-checkbox">
+          <input id="processorRememberKey" type="checkbox" ${savedKey ? "checked" : ""} />
+          <span>仅保存在本机浏览器</span>
+        </label>
+        <button data-process-note type="button" ${noteProcessorBusy || !source ? "disabled" : ""}>${noteProcessorBusy ? "处理中..." : "清洗当前笔记"}</button>
+      </div>
+
+      <div class="processor-layout">
+        <article>
+          <div class="processor-section-title"><strong>原始笔记</strong><span>${source.length.toLocaleString()} 字符</span></div>
+          <pre>${escapeHtml(source || "当前笔记还没有可处理的原文。")}</pre>
+        </article>
+        <article>
+          <div class="processor-section-title"><strong>清洗结果</strong><span>${processed ? "已生成" : "等待处理"}</span></div>
+          <pre>${escapeHtml(processed || "点击“清洗当前笔记”后，会在这里生成：核心结论、事实证据、投资含义、待验证问题、公司/行业标签和可归档摘要。")}</pre>
+        </article>
+      </div>
     </section>
   `;
 }
@@ -2167,6 +2243,56 @@ async function attachTranscriptFile(files) {
   persistItems([item]);
 }
 
+async function processCurrentNote() {
+  const item = selectedNoteItem();
+  if (!item || noteProcessorBusy) return;
+  const modelId = document.querySelector("#processorModelSelect")?.value || noteProcessorModels[0].id;
+  const model = noteProcessorModels.find((row) => row.id === modelId) || noteProcessorModels[0];
+  const apiKeyInput = document.querySelector("#processorApiKeyInput")?.value.trim() || "";
+  const remember = document.querySelector("#processorRememberKey")?.checked;
+  const source = materialTranscript(item) || materialSource(item) || readableText(item.summary);
+  if (!source) return;
+
+  try {
+    if (apiKeyInput && remember) {
+      localStorage.setItem(processorKeyStorageId(model.provider), apiKeyInput);
+    }
+    localStorage.setItem("andy-workstation-note-processor-model", model.id);
+  } catch {
+    // Local key storage is optional.
+  }
+
+  noteProcessorBusy = true;
+  render();
+
+  try {
+    const data = await api("process-note", {
+      method: "POST",
+      body: JSON.stringify({
+        model: model.id,
+        provider: model.provider,
+        apiKey: apiKeyInput || processorStoredKey(model.provider),
+        title: item.title,
+        source
+      })
+    });
+    const result = data.result || "";
+    item.viewText = result;
+    item.summary = result.replace(/\s+/g, " ").trim().slice(0, 280);
+    item.tags = [...new Set([...materialTags(item), "已清洗", model.label])].slice(0, 12);
+    item.processor = { model: model.id, provider: model.provider, processedAt: new Date().toISOString() };
+    item.publishedAt = new Date().toISOString();
+    saveState();
+    persistItems([item]);
+  } catch (error) {
+    item.viewText = `处理失败：${error.message || "模型接口暂时不可用"}\n\n请检查 API key、模型名或 Cloudflare 环境变量。`;
+    saveState();
+  } finally {
+    noteProcessorBusy = false;
+    render();
+  }
+}
+
 els.refreshBtn.addEventListener("click", refreshOpenInfo);
 document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-open-url]");
@@ -2254,6 +2380,11 @@ document.addEventListener("click", (event) => {
     els.transcriptFileInput.click();
     return;
   }
+  const processNote = event.target.closest("[data-process-note]");
+  if (processNote) {
+    processCurrentNote();
+    return;
+  }
   const openCompanyFolder = event.target.closest("[data-open-folder-for-company]");
   if (openCompanyFolder) {
     state.railView = "folders";
@@ -2293,6 +2424,16 @@ els.searchInput.addEventListener("input", (event) => {
 els.fileInput.addEventListener("change", (event) => importFiles(event.target.files));
 els.folderUploadInput.addEventListener("change", (event) => uploadFilesToCustomFolder(event.target.files, event.target.dataset.folderId));
 els.transcriptFileInput.addEventListener("change", (event) => attachTranscriptFile(event.target.files));
+document.addEventListener("change", (event) => {
+  const modelSelect = event.target.closest("#processorModelSelect");
+  if (!modelSelect) return;
+  try {
+    localStorage.setItem("andy-workstation-note-processor-model", modelSelect.value);
+  } catch {
+    // Ignore private browsing storage failures.
+  }
+  render();
+});
 els.saveCompanyBtn.addEventListener("click", updateActiveCompanyFromForm);
 els.saveNoteBtn.addEventListener("click", saveResearchNote);
 els.newMaterialBtn.addEventListener("click", createMaterial);

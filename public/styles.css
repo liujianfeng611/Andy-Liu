@@ -1487,6 +1487,130 @@ body.note-reader-mode .main-stage {
   line-height: 1.5;
 }
 
+.processor-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.processor-head,
+.processor-controls,
+.processor-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.processor-head {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #090908;
+  padding: 14px;
+}
+
+.processor-head strong {
+  color: #eee8df;
+  font-size: 18px;
+}
+
+.processor-head p {
+  color: var(--muted);
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.processor-head > span,
+.processor-section-title span {
+  color: #8dddff;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.processor-controls {
+  flex-wrap: wrap;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #120f0e;
+  padding: 12px;
+}
+
+.processor-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.processor-controls label:first-child {
+  min-width: 230px;
+}
+
+.processor-controls label:nth-child(2) {
+  min-width: min(420px, 100%);
+  flex: 1;
+}
+
+.processor-controls select,
+.processor-controls input[type="password"] {
+  height: 36px;
+}
+
+.processor-checkbox {
+  grid-auto-flow: column;
+  align-items: center;
+  min-height: 36px;
+}
+
+.processor-controls button {
+  border: 1px solid #145f83;
+  border-radius: 8px;
+  background: #0e3b52;
+  color: #8dddff;
+  min-height: 36px;
+  padding: 0 14px;
+  font-weight: 900;
+}
+
+.processor-controls button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.processor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+}
+
+.processor-layout article {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #090908;
+  padding: 12px;
+}
+
+.processor-section-title {
+  margin-bottom: 10px;
+}
+
+.processor-section-title strong {
+  color: #eee8df;
+}
+
+.processor-layout pre {
+  min-height: 420px;
+  max-height: 65vh;
+  overflow: auto;
+  margin: 0;
+  color: #d9d2ca;
+  white-space: pre-wrap;
+  font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .view-stream strong,
 .view-stream span {
   display: block;
