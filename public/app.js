@@ -125,6 +125,7 @@ let state = loadState();
 let backendStatus = "local";
 const autoRefreshingCompanies = new Set();
 let noteProcessorBusy = false;
+let noteProcessorStatus = "";
 
 const els = {
   noteStream: document.querySelector("#noteStream"),
@@ -1374,6 +1375,7 @@ function renderNoteProcessor(item, transcript) {
         </label>
         <button data-process-note type="button" ${noteProcessorBusy || !source ? "disabled" : ""}>${noteProcessorBusy ? "处理中..." : "清洗当前笔记"}</button>
       </div>
+      ${noteProcessorStatus ? `<div class="processor-status">${escapeHtml(noteProcessorStatus)}</div>` : ""}
 
       <div class="processor-layout">
         <article>
@@ -2298,7 +2300,11 @@ async function processCurrentNote() {
   const apiKeyInput = document.querySelector("#processorApiKeyInput")?.value.trim() || "";
   const remember = document.querySelector("#processorRememberKey")?.checked;
   const source = materialTranscript(item) || materialSource(item) || readableText(item.summary);
-  if (!source) return;
+  if (!source) {
+    noteProcessorStatus = "当前笔记没有可清洗的原文。请先上传/读取文件内容，或切到 Transcript 检查是否有正文。";
+    render();
+    return;
+  }
 
   try {
     if (apiKeyInput && remember) {
@@ -2310,6 +2316,7 @@ async function processCurrentNote() {
   }
 
   noteProcessorBusy = true;
+  noteProcessorStatus = `正在使用 ${model.label} 清洗当前笔记...`;
   render();
 
   try {
@@ -2329,10 +2336,12 @@ async function processCurrentNote() {
     item.tags = [...new Set([...materialTags(item), "已清洗", model.label])].slice(0, 12);
     item.processor = { model: model.id, provider: model.provider, processedAt: new Date().toISOString() };
     item.publishedAt = new Date().toISOString();
+    noteProcessorStatus = `已完成：${model.label} 已生成清洗结果。`;
     saveState();
     persistItems([item]);
   } catch (error) {
-    item.viewText = `处理失败：${error.message || "模型接口暂时不可用"}\n\n请检查 API key、模型名或 Cloudflare 环境变量。`;
+    noteProcessorStatus = `处理失败：${error.message || "模型接口暂时不可用"}`;
+    item.viewText = `## 处理失败\n- ${error.message || "模型接口暂时不可用"}\n- 请检查 API key、模型名或 Cloudflare 环境变量。`;
     saveState();
   } finally {
     noteProcessorBusy = false;

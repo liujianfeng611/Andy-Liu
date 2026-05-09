@@ -32,9 +32,11 @@ const mimeTypes = {
 function sendJson(res, status, payload) {
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
-    "access-control-allow-origin": "*"
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
+    "access-control-allow-headers": "content-type"
   });
-  res.end(JSON.stringify(payload));
+  res.end(status === 204 ? "" : JSON.stringify(payload));
 }
 
 function cleanText(value) {

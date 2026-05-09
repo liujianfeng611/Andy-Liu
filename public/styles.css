@@ -1579,6 +1579,16 @@ body.note-reader-mode .main-stage {
   cursor: not-allowed;
 }
 
+.processor-status {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0c1c24;
+  color: #8dddff;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 850;
+}
+
 .processor-layout {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);

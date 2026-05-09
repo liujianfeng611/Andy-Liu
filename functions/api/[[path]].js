@@ -17,7 +17,7 @@ export async function onRequest(context) {
   const route = url.pathname.replace(/^\/api\/?/, "") || "bootstrap";
 
   try {
-    if (context.request.method === "OPTIONS") return json({}, 204);
+    if (context.request.method === "OPTIONS") return cors(null, 204);
     if (route === "bootstrap" && context.request.method === "GET") return getBootstrap(context.env);
     if (route === "companies" && context.request.method === "POST") return upsertCompany(context);
     if (route === "items" && context.request.method === "POST") return upsertItems(context);
@@ -41,6 +41,17 @@ function json(payload, status = 200) {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
+      "access-control-allow-headers": "content-type"
+    }
+  });
+}
+
+function cors(body = null, status = 200) {
+  return new Response(body, {
+    status,
+    headers: {
       "access-control-allow-origin": "*",
       "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
       "access-control-allow-headers": "content-type"
