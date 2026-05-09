@@ -686,20 +686,11 @@ function renderNotes() {
     : `还没有上传笔记。可以在公司页点击“添加材料”上传文件，或在右侧资料入口新增材料。`;
 
   els.noteStream.innerHTML = rows.map((item) => {
-    const company = itemCompany(item);
-    const companyTag = company?.ticker || item.source || "NOTE";
-    const secondaryTag = company ? inferIndustry(company) : materialTags(item)[0] || item.folderId || "";
-    const ideaCount = item.viewText || item.summary ? 1 : 0;
     return `
     <article class="note-item uploaded-note ${item.id === selectedId ? "active" : ""}">
       <button class="note-select" data-item-id="${escapeHtml(item.id)}" type="button">
-      <div class="note-title">${escapeHtml(readableText(item.title))}</div>
-      <div class="note-meta">
-        <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
-        ${ideaCount ? `<span class="note-badge">▱ ${ideaCount}</span>` : ""}
-        <span class="tag">${escapeHtml(companyTag)}</span>
-        ${secondaryTag ? `<span class="tag wide">${escapeHtml(secondaryTag)}</span>` : ""}
-      </div>
+        <div class="note-title">${escapeHtml(readableText(item.title))}</div>
+        <div class="note-meta">${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</div>
       </button>
     </article>
   `;

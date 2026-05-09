@@ -227,50 +227,46 @@ body.company-mode .terminal-shell {
 .note-stream {
   flex: 1;
   overflow: auto;
-  padding: 0 16px 16px;
+  padding: 0;
 }
 
 .note-item {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   align-items: start;
   width: 100%;
   border: 0;
-  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--line-soft);
   background: transparent;
   text-align: left;
-  padding: 12px 0;
+  padding: 0;
 }
 
 .note-item:hover,
 .note-item.active {
-  border-left-color: var(--blue);
-  padding-left: 10px;
+  background: #27231f;
 }
 
 .note-item.uploaded-note {
   grid-template-columns: minmax(0, 1fr);
-  border-left-width: 0;
-  border-radius: 6px;
-  padding: 13px 8px;
+  border-radius: 0;
+  padding: 0;
 }
 
 .note-item.uploaded-note:hover,
 .note-item.uploaded-note.active {
-  border-left-color: transparent;
   background: #27231f;
-  padding-left: 8px;
 }
 
 .note-select {
   display: grid;
-  gap: 6px;
+  gap: 7px;
   min-width: 0;
   border: 0;
   background: transparent;
-  padding: 0;
+  padding: 16px 22px;
   text-align: left;
 }
 
@@ -279,16 +275,16 @@ body.company-mode .terminal-shell {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #ddd8d1;
-  font-size: 16px;
-  font-weight: 780;
+  font-size: 17px;
+  font-weight: 820;
+  line-height: 1.25;
 }
 
 .note-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.2;
 }
 
 .tag {

@@ -24,22 +24,9 @@
           <button data-rail-view="folders" type="button">文件夹</button>
         </nav>
 
-        <button class="filter-button">
-          <span>☷ 阅读筛选</span>
-          <span>1000/1000⌄</span>
-        </button>
-        <label class="search-box">
-          <span>搜索材料</span>
-          <input id="searchInput" type="search" placeholder="标题、Source、View、标签..." autocomplete="off" />
-        </label>
-
-        <section class="intake-panel" aria-label="资料处理队列">
-          <div class="side-title">
-            <span>处理队列</span>
-            <span id="queueTotal">0</span>
-          </div>
-          <div id="intakeQueue" class="intake-queue"></div>
-        </section>
+        <input id="searchInput" type="search" autocomplete="off" hidden />
+        <span id="queueTotal" hidden>0</span>
+        <div id="intakeQueue" hidden></div>
 
         <div id="noteStream" class="note-stream"></div>
 
