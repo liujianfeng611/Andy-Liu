@@ -178,6 +178,59 @@ body.daily-mode .terminal-shell {
   height: 36px;
 }
 
+.rail-company-jump {
+  display: grid;
+  gap: 7px;
+  margin: 12px 18px 14px;
+}
+
+.rail-company-jump[hidden] {
+  display: none;
+}
+
+.rail-company-jump label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.rail-company-jump div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 8px;
+}
+
+.rail-company-jump input {
+  height: 38px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #090908;
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rail-company-jump input::placeholder {
+  color: var(--muted-2);
+}
+
+.rail-company-jump button {
+  border: 1px solid #145f83;
+  border-radius: 9px;
+  background: #0e3b52;
+  color: #8dddff;
+  font-weight: 950;
+}
+
+.rail-company-jump small {
+  min-height: 15px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .intake-panel {
   margin: 0 18px 14px;
   border: 1px solid var(--line);
@@ -2540,6 +2593,18 @@ body.light-theme select {
   border-color: #d9d3cd;
   background: #fff;
   color: #24211f;
+}
+
+body.light-theme .rail-company-jump input {
+  border-color: #d9d3cd;
+  background: #ffffff;
+  color: #24211f;
+}
+
+body.light-theme .rail-company-jump button {
+  border-color: #7dd3fc;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 body.light-theme .main-stage,

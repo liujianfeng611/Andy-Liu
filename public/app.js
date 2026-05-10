@@ -280,6 +280,10 @@ let dailyNewsStatus = "";
 
 const els = {
   noteStream: document.querySelector("#noteStream"),
+  railCompanyJump: document.querySelector("#railCompanyJump"),
+  railCompanyJumpInput: document.querySelector("#railCompanyJumpInput"),
+  railCompanyJumpHint: document.querySelector("#railCompanyJumpHint"),
+  railCompanyJumpList: document.querySelector("#railCompanyJumpList"),
   queueTotal: document.querySelector("#queueTotal"),
   intakeQueue: document.querySelector("#intakeQueue"),
   searchInput: document.querySelector("#searchInput"),
@@ -949,6 +953,83 @@ function formatTime(value) {
 
 function companyQuery(company) {
   return [company.name, company.ticker].filter(Boolean).join(" ");
+}
+
+function companyAliasText(company) {
+  const aliases = {
+    AMZN: "Amazon 亚马逊",
+    MSFT: "Microsoft 微软",
+    NVDA: "NVIDIA Nvidia 英伟达",
+    PLTR: "Palantir 帕兰蒂尔",
+    AMD: "Advanced Micro Devices 超威",
+    GOOGL: "Google Alphabet 谷歌",
+    GOOG: "Google Alphabet 谷歌",
+    META: "Meta Facebook 脸书",
+    AAPL: "Apple 苹果",
+    TSLA: "Tesla 特斯拉",
+    TSM: "TSMC 台积电"
+  };
+  return aliases[String(company?.ticker || "").toUpperCase()] || "";
+}
+
+function companySearchText(company) {
+  return [
+    company?.name,
+    company?.ticker,
+    company?.cik,
+    companyAliasText(company),
+    ...(company?.topics || [])
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function slugCompanyId(value) {
+  const base = String(value || "company")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32) || `company-${Date.now().toString(36)}`;
+  let id = base;
+  let index = 2;
+  while (state.companies.some((company) => company.id === id)) {
+    id = `${base}-${index}`;
+    index += 1;
+  }
+  return id;
+}
+
+function findCompanyByQuery(query) {
+  const normalized = String(query || "").trim().toLowerCase();
+  if (!normalized) return null;
+  const compact = normalized.replace(/[^a-z0-9\u4e00-\u9fff]/g, "");
+  return state.companies.find((company) => String(company.ticker || "").toLowerCase() === normalized)
+    || state.companies.find((company) => String(company.name || "").toLowerCase() === normalized)
+    || state.companies.find((company) => companySearchText(company).replace(/[^a-z0-9\u4e00-\u9fff]/g, "").includes(compact))
+    || state.companies.find((company) => companySearchText(company).includes(normalized));
+}
+
+function createCompanyFromQuery(query) {
+  const raw = String(query || "").trim();
+  if (!raw) return null;
+  const tickerLike = /^[a-z0-9.\-]{1,8}$/i.test(raw);
+  const ticker = tickerLike ? raw.toUpperCase() : "";
+  const company = {
+    id: slugCompanyId(ticker || raw),
+    name: ticker ? ticker : raw,
+    ticker,
+    cik: "",
+    topics: [],
+    notes: ""
+  };
+  state.companies = [...state.companies, company];
+  persistCompany(company);
+  return company;
+}
+
+function goToCompanyQuery(query) {
+  const company = findCompanyByQuery(query) || createCompanyFromQuery(query);
+  if (!company) return false;
+  selectCompany(company.id);
+  return true;
 }
 
 function addItems(items) {
@@ -2598,6 +2679,22 @@ function renderRailTabs() {
   });
 }
 
+function renderRailCompanyJump() {
+  const visible = state.railView === "notes" || state.railView === "folders";
+  if (!els.railCompanyJump) return;
+  els.railCompanyJump.hidden = !visible;
+  if (!visible) return;
+
+  els.railCompanyJumpList.innerHTML = state.companies
+    .slice()
+    .sort((a, b) => String(a.ticker || a.name).localeCompare(String(b.ticker || b.name)))
+    .map((company) => {
+      const label = [company.ticker, company.name].filter(Boolean).join(" · ");
+      return `<option value="${escapeHtml(company.ticker || company.name)}">${escapeHtml(label)}</option>`;
+    })
+    .join("");
+}
+
 function renderTheme() {
   const mode = state.themeMode === "light" ? "light" : "dark";
   document.body.classList.toggle("light-theme", mode === "light");
@@ -2681,6 +2778,7 @@ function renderEditor() {
 function render() {
   renderTheme();
   renderRailTabs();
+  renderRailCompanyJump();
   renderAgentTabs();
   renderIntakeQueue();
   renderNotes();
@@ -3852,6 +3950,29 @@ document.querySelectorAll("[data-rail-view]").forEach((button) => {
     saveState();
     render();
   });
+});
+els.railCompanyJump?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const query = els.railCompanyJumpInput.value.trim();
+  if (!query) {
+    els.railCompanyJumpHint.textContent = "输入公司名或 ticker 后按回车。";
+    return;
+  }
+  const matched = findCompanyByQuery(query);
+  const success = goToCompanyQuery(query);
+  if (success) {
+    els.railCompanyJumpInput.value = "";
+    els.railCompanyJumpHint.textContent = matched ? `已打开 ${matched.ticker || matched.name}` : "已新建公司页";
+  } else {
+    els.railCompanyJumpHint.textContent = "没有找到，也无法新建公司页。";
+  }
+});
+els.railCompanyJumpInput?.addEventListener("input", (event) => {
+  const query = event.target.value.trim();
+  const matched = findCompanyByQuery(query);
+  els.railCompanyJumpHint.textContent = query && matched
+    ? `将打开 ${matched.ticker || matched.name} · ${matched.name || matched.ticker}`
+    : "";
 });
 els.noteStream.addEventListener("click", (event) => {
   const button = event.target.closest("[data-item-id]");
