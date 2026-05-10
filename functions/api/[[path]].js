@@ -24,6 +24,7 @@ export async function onRequest(context) {
     if (route === "items" && context.request.method === "DELETE") return deleteItems(context);
     if (route === "ask" && context.request.method === "POST") return askPmAgent(context);
     if (route === "process-note" && context.request.method === "POST") return processNote(context);
+    if (route === "fetch-url" && context.request.method === "POST") return fetchUrlResource(context);
     if (route === "open-web" && context.request.method === "GET") return getOpenWeb(url);
     if (route === "sec" && context.request.method === "GET") return getSec(url);
     return json({ error: "Unknown API route" }, 404);
@@ -528,6 +529,45 @@ async function fetchText(url, headers = {}) {
   const response = await fetch(url, { headers: { "user-agent": "AndyWorkstation/0.1", ...headers } });
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.text();
+}
+
+async function fetchUrlResource(context) {
+  const payload = await context.request.json().catch(() => ({}));
+  const target = cleanText(payload.url);
+  if (!/^https?:\/\//i.test(target)) return json({ error: "请输入 http 或 https 开头的链接" }, 400);
+  const response = await fetch(target, {
+    headers: {
+      "user-agent": "AndyWorkstation/0.1",
+      accept: "text/html,text/plain,application/json,text/csv,*/*"
+    }
+  });
+  if (!response.ok) return json({ error: `无法读取链接：${response.status} ${response.statusText}` }, 400);
+  const contentType = response.headers.get("content-type") || "";
+  const source = new URL(target).hostname.replace(/^www\./, "");
+  const isReadable = /text|json|xml|csv|html|markdown|javascript/i.test(contentType);
+  if (!isReadable) {
+    return json({
+      title: target.split("/").filter(Boolean).pop() || target,
+      source,
+      url: target,
+      contentType,
+      text: "",
+      description: `已保存链接。该文件类型暂不直接读取正文：${contentType || "unknown"}`
+    });
+  }
+  const raw = (await response.text()).slice(0, 300000);
+  const title = raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  const description = raw.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1]
+    || raw.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i)?.[1]
+    || "";
+  return json({
+    title: cleanHtmlText(title || target.split("/").filter(Boolean).pop() || target),
+    source,
+    url: target,
+    contentType,
+    description: cleanHtmlText(description),
+    text: cleanHtmlText(raw)
+  });
 }
 
 function decodeXml(value) {

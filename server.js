@@ -94,6 +94,52 @@ async function fetchText(url, headers = {}) {
   return response.text();
 }
 
+function cleanHtmlText(value) {
+  return cleanText(String(value || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replaceAll("\u00a0", " "));
+}
+
+async function fetchUrlResourceLocal(value) {
+  const target = cleanText(value);
+  if (!/^https?:\/\//i.test(target)) throw new Error("请输入 http 或 https 开头的链接");
+  const response = await fetch(target, {
+    headers: {
+      "user-agent": "AndyWorkstation/0.1",
+      accept: "text/html,text/plain,application/json,text/csv,*/*"
+    }
+  });
+  if (!response.ok) throw new Error(`无法读取链接：${response.status} ${response.statusText}`);
+  const contentType = response.headers.get("content-type") || "";
+  const source = new URL(target).hostname.replace(/^www\./, "");
+  const isReadable = /text|json|xml|csv|html|markdown|javascript/i.test(contentType);
+  if (!isReadable) {
+    return {
+      title: target.split("/").filter(Boolean).pop() || target,
+      source,
+      url: target,
+      contentType,
+      text: "",
+      description: `已保存链接。该文件类型暂不直接读取正文：${contentType || "unknown"}`
+    };
+  }
+  const raw = (await response.text()).slice(0, 300000);
+  const title = raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  const description = raw.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1]
+    || raw.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i)?.[1]
+    || "";
+  return {
+    title: cleanHtmlText(title || target.split("/").filter(Boolean).pop() || target),
+    source,
+    url: target,
+    contentType,
+    description: cleanHtmlText(description),
+    text: cleanHtmlText(raw)
+  };
+}
+
 function decodeXml(value) {
   return cleanText(value)
     .replaceAll("&amp;", "&")
@@ -224,6 +270,12 @@ async function handleApi(req, res, url) {
     if (url.pathname === "/api/process-note" && req.method === "POST") {
       const payload = await readJsonBody(req);
       const result = await processNoteLocal(payload);
+      return sendJson(res, 200, result);
+    }
+
+    if (url.pathname === "/api/fetch-url" && req.method === "POST") {
+      const payload = await readJsonBody(req);
+      const result = await fetchUrlResourceLocal(payload.url);
       return sendJson(res, 200, result);
     }
 

@@ -1853,6 +1853,31 @@ body.note-reader-mode .main-stage {
   font-weight: 900;
 }
 
+.folder-board-actions [data-delete-folder] {
+  color: #ff8fa3;
+}
+
+.folder-url-save {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.folder-url-save input {
+  min-height: 36px;
+}
+
+.folder-url-save button {
+  border: 1px solid #145f83;
+  border-radius: 8px;
+  background: #0f3d55;
+  color: #abe7ff;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .folder-card-grid-main {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));

@@ -695,11 +695,32 @@ function customFolders() {
   return Array.isArray(state.customFolders) ? state.customFolders : [];
 }
 
+function childCustomFolders(parentId = "") {
+  return customFolders()
+    .filter((folder) => (folder.parentId || "") === (parentId || ""))
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+}
+
 function customFolderItems(folderId) {
   return state.items
     .filter(isVisibleMaterial)
     .filter((item) => item.folderId === `custom:${folderId}`)
     .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
+}
+
+function descendantCustomFolderIds(folderId) {
+  const ids = new Set([folderId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    customFolders().forEach((folder) => {
+      if (!ids.has(folder.id) && ids.has(folder.parentId)) {
+        ids.add(folder.id);
+        changed = true;
+      }
+    });
+  }
+  return [...ids];
 }
 
 function companyOpenNewsCount(companyId) {
@@ -761,6 +782,8 @@ function renderNotes() {
 function renderCloudFolders() {
   const path = Array.isArray(state.folderPath) ? state.folderPath : [];
   const selectedIndustry = path[0] || "";
+  const selectedCustomId = selectedIndustry.startsWith("custom:") ? selectedIndustry.slice(7) : "";
+  const selectedCustomFolder = customFolders().find((folder) => folder.id === selectedCustomId);
 
   if (!selectedIndustry) {
     const groups = state.companies.reduce((acc, company) => {
@@ -785,14 +808,16 @@ function renderCloudFolders() {
         </button>
       `;
     });
-    const customRows = customFolders().map((folder) => {
-      const items = customFolderItems(folder.id);
+    const customRows = childCustomFolders().map((folder) => {
+      const nested = descendantCustomFolderIds(folder.id);
+      const items = nested.flatMap((id) => customFolderItems(id));
+      const subfolderCount = childCustomFolders(folder.id).length;
       return `
         <button class="cloud-folder directory custom" data-custom-folder="${escapeHtml(folder.id)}" type="button">
           <div class="folder-icon">▰</div>
           <div class="folder-main">
             <strong>${escapeHtml(folder.name)}</strong>
-            <span>自定义分类 · ${items.length} 份资料</span>
+            <span>个人文件夹 · ${subfolderCount} 个子文件夹 · ${items.length} 份资料</span>
           </div>
           <div class="folder-meta">
             <em>${items.length}</em>
@@ -805,6 +830,40 @@ function renderCloudFolders() {
     els.noteStream.innerHTML = `
       <div class="folder-breadcrumb"><strong>云端文件夹</strong><span>按行业分类</span></div>
       ${rows.join("") || `<div class="empty-list">还没有分类文件夹。先在右侧投资组合雷达添加或导入公司。</div>`}
+    `;
+    return;
+  }
+
+  if (selectedCustomFolder) {
+    const subfolders = childCustomFolders(selectedCustomFolder.id).map((folder) => {
+      const items = descendantCustomFolderIds(folder.id).flatMap((id) => customFolderItems(id));
+      return `
+        <button class="cloud-folder directory custom" data-custom-folder="${escapeHtml(folder.id)}" type="button">
+          <div class="folder-icon">▰</div>
+          <div class="folder-main">
+            <strong>${escapeHtml(folder.name)}</strong>
+            <span>${childCustomFolders(folder.id).length} 个子文件夹 · ${items.length} 份资料</span>
+          </div>
+          <div class="folder-meta"><em>${items.length}</em><span>打开</span></div>
+        </button>
+      `;
+    }).join("");
+    const files = customFolderItems(selectedCustomFolder.id).map((item) => `
+      <button class="cloud-folder" data-item-id="${escapeHtml(item.id)}" type="button">
+        <div class="folder-icon">▱</div>
+        <div class="folder-main">
+          <strong>${escapeHtml(readableText(item.title))}</strong>
+          <span>${escapeHtml(readableText(item.summary || item.url || "已保存资料"))}</span>
+        </div>
+        <div class="folder-meta"><em>${escapeHtml(item.source || "FILE")}</em><span>${formatTime(item.publishedAt || item.createdAt)}</span></div>
+      </button>
+    `).join("");
+    els.noteStream.innerHTML = `
+      <button class="folder-breadcrumb clickable" ${selectedCustomFolder.parentId ? `data-custom-folder="${escapeHtml(selectedCustomFolder.parentId)}"` : "data-folder-back"} type="button">
+        <strong>云端文件夹 / ${escapeHtml(selectedCustomFolder.name)}</strong>
+        <span>← 返回上级</span>
+      </button>
+      ${subfolders}${files || ""}${!subfolders && !files ? `<div class="empty-list">这个文件夹还没有资料。</div>` : ""}
     `;
     return;
   }
@@ -859,8 +918,10 @@ function renderFolderBoard() {
   }
 
   if (!selectedIndustry) {
-    const customCards = customFolders().map((folder) => {
-      const items = customFolderItems(folder.id);
+    const customCards = childCustomFolders().map((folder) => {
+      const nested = descendantCustomFolderIds(folder.id);
+      const items = nested.flatMap((id) => customFolderItems(id));
+      const subfolderCount = childCustomFolders(folder.id).length;
       return `
         <article class="folder-card-large custom-folder-card">
           <button class="folder-card-head" data-custom-folder="${escapeHtml(folder.id)}" type="button">
@@ -868,6 +929,7 @@ function renderFolderBoard() {
             <strong>${escapeHtml(folder.name)}</strong>
             <em>${items.length}</em>
           </button>
+          <p>${subfolderCount} 个子文件夹 · ${items.length} 份资料</p>
           <div class="folder-chip-grid">
             <button class="folder-chip" data-custom-folder="${escapeHtml(folder.id)}" type="button"><span>▱</span>打开</button>
             <button class="folder-chip" data-upload-folder="${escapeHtml(folder.id)}" type="button"><span>＋</span>上传资料</button>
@@ -901,7 +963,7 @@ function renderFolderBoard() {
           <h2>云端文件夹</h2>
         </div>
         <div class="folder-board-actions">
-          <button data-create-folder type="button">新建分类</button>
+          <button data-create-folder type="button">新建文件夹</button>
         </div>
       </div>
       <div class="folder-card-grid-main">${customCards}${cards}</div>
@@ -910,8 +972,23 @@ function renderFolderBoard() {
   }
 
   if (selectedCustomFolder) {
+    const childFolders = childCustomFolders(selectedCustomFolder.id);
+    const folderCards = childFolders.map((folder) => {
+      const nested = descendantCustomFolderIds(folder.id);
+      const items = nested.flatMap((id) => customFolderItems(id));
+      return `
+        <article class="folder-card-large custom-folder-card">
+          <button class="folder-card-head" data-custom-folder="${escapeHtml(folder.id)}" type="button">
+            <span class="folder-card-icon">▰</span>
+            <strong>${escapeHtml(folder.name)}</strong>
+            <em>${items.length}</em>
+          </button>
+          <p>${childCustomFolders(folder.id).length} 个子文件夹 · ${items.length} 份资料</p>
+        </article>
+      `;
+    }).join("");
     const items = customFolderItems(selectedCustomFolder.id);
-    const cards = items.map((item) => `
+    const fileCards = items.map((item) => `
       <article class="folder-card-large file-card">
         <button class="folder-card-head" data-item-id="${escapeHtml(item.id)}" type="button">
           <span class="folder-card-icon">▱</span>
@@ -925,12 +1002,18 @@ function renderFolderBoard() {
 
     els.folderBoard.innerHTML = `
       <div class="folder-board-top">
-        <button class="folder-board-back" data-folder-back type="button">← 云端文件夹 / ${escapeHtml(selectedCustomFolder.name)}</button>
+        <button class="folder-board-back" ${selectedCustomFolder.parentId ? `data-custom-folder="${escapeHtml(selectedCustomFolder.parentId)}"` : "data-folder-back"} type="button">← 云端文件夹 / ${escapeHtml(selectedCustomFolder.name)}</button>
         <div class="folder-board-actions">
+          <button data-create-folder="${escapeHtml(selectedCustomFolder.id)}" type="button">新建子文件夹</button>
           <button data-upload-folder="${escapeHtml(selectedCustomFolder.id)}" type="button">上传资料</button>
+          <button data-delete-folder="${escapeHtml(selectedCustomFolder.id)}" type="button">删除文件夹</button>
         </div>
       </div>
-      <div class="folder-card-grid-main">${cards || `<div class="empty-list">这个分类还没有资料。点击右上角上传。</div>`}</div>
+      <div class="folder-url-save">
+        <input data-save-web-url-input="${escapeHtml(selectedCustomFolder.id)}" placeholder="粘贴网页 / PDF / 文件链接，直接保存到这个文件夹" />
+        <button data-save-web-url="${escapeHtml(selectedCustomFolder.id)}" type="button">保存网页</button>
+      </div>
+      <div class="folder-card-grid-main">${folderCards}${fileCards || ""}${!folderCards && !fileCards ? `<div class="empty-list">这个文件夹还没有资料。可以新建子文件夹、上传资料，或直接保存网页链接。</div>` : ""}</div>
     `;
     return;
   }
@@ -2463,12 +2546,13 @@ async function importUniverseFile(file, universeType) {
   }
 }
 
-function createCustomFolder() {
-  const name = prompt("新建分类文件夹名称");
+function createCustomFolder(parentId = "") {
+  const name = prompt(parentId ? "新建子文件夹名称" : "新建文件夹名称");
   if (!name?.trim()) return;
   const folder = {
     id: `folder-${Date.now().toString(36)}`,
     name: name.trim(),
+    parentId: parentId || "",
     createdAt: new Date().toISOString()
   };
   state.customFolders = [...customFolders(), folder];
@@ -2476,6 +2560,66 @@ function createCustomFolder() {
   state.folderPath = [`custom:${folder.id}`];
   saveState();
   render();
+}
+
+function deleteCustomFolder(folderId) {
+  const folder = customFolders().find((row) => row.id === folderId);
+  if (!folder) return;
+  const ids = descendantCustomFolderIds(folderId);
+  const itemIds = state.items
+    .filter((item) => ids.includes(String(item.folderId || "").replace(/^custom:/, "")))
+    .map((item) => item.id);
+  const confirmed = confirm(`删除「${folder.name}」及其 ${ids.length - 1} 个子文件夹、${itemIds.length} 份资料？`);
+  if (!confirmed) return;
+  state.customFolders = customFolders().filter((row) => !ids.includes(row.id));
+  state.items = state.items.filter((item) => !itemIds.includes(item.id));
+  state.folderPath = folder.parentId ? [`custom:${folder.parentId}`] : [];
+  saveState();
+  render();
+  if (itemIds.length) {
+    api("items", { method: "DELETE", body: JSON.stringify({ ids: itemIds }) }).catch((error) => {
+      console.warn("Deleted locally only:", error.message);
+    });
+  }
+}
+
+async function saveWebUrlToCustomFolder(folderId) {
+  const folder = customFolders().find((row) => row.id === folderId);
+  const input = document.querySelector(`[data-save-web-url-input="${folderId}"]`);
+  const url = input?.value.trim();
+  if (!folder || !url) return;
+  const now = new Date().toISOString();
+  try {
+    const data = await api("fetch-url", {
+      method: "POST",
+      body: JSON.stringify({ url })
+    });
+    const title = data.title || url;
+    const text = cleanTranscriptText(data.text || "");
+    const item = {
+      id: `${folder.id}-web-${Date.now().toString(36)}`,
+      companyId: null,
+      type: "local",
+      folderId: `custom:${folder.id}`,
+      tags: ["网页保存", folder.name, text ? "可读正文" : "链接"],
+      title,
+      source: data.source || "WEB",
+      url,
+      sourceText: text || `已保存网页链接：${url}`,
+      viewText: "",
+      createdAt: now,
+      publishedAt: now,
+      summary: (text || data.description || url).replace(/\s+/g, " ").trim().slice(0, 280)
+    };
+    addItems([item]);
+    state.railView = "folders";
+    state.folderPath = [`custom:${folder.id}`];
+    if (input) input.value = "";
+    saveState();
+    render();
+  } catch (error) {
+    alert(`保存网页失败：${error.message || "链接无法读取"}`);
+  }
 }
 
 async function uploadFilesToCustomFolder(files, folderId) {
@@ -2709,13 +2853,23 @@ document.addEventListener("click", (event) => {
   }
   const createFolder = event.target.closest("[data-create-folder]");
   if (createFolder) {
-    createCustomFolder();
+    createCustomFolder(createFolder.dataset.createFolder || "");
+    return;
+  }
+  const deleteFolder = event.target.closest("[data-delete-folder]");
+  if (deleteFolder) {
+    deleteCustomFolder(deleteFolder.dataset.deleteFolder);
     return;
   }
   const uploadFolder = event.target.closest("[data-upload-folder]");
   if (uploadFolder) {
     els.folderUploadInput.dataset.folderId = uploadFolder.dataset.uploadFolder;
     els.folderUploadInput.click();
+    return;
+  }
+  const saveWebUrl = event.target.closest("[data-save-web-url]");
+  if (saveWebUrl) {
+    saveWebUrlToCustomFolder(saveWebUrl.dataset.saveWebUrl);
     return;
   }
   const refresh = event.target.closest("[data-workspace-refresh]");
