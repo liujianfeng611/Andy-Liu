@@ -137,6 +137,7 @@ const els = {
   workflowGrid: document.querySelector("#workflowGrid"),
   impactMatrix: document.querySelector("#impactMatrix"),
   researchQueue: document.querySelector("#researchQueue"),
+  agentTabs: document.querySelector("#agentTabs"),
   folderBoard: document.querySelector("#folderBoard"),
   companyWorkspace: document.querySelector("#companyWorkspace"),
   companyUploadInput: document.querySelector("#companyUploadInput"),
@@ -2104,6 +2105,24 @@ function renderRailTabs() {
   });
 }
 
+function renderAgentTabs() {
+  const tabs = [
+    "首页",
+    ...(state.railView === "daily" ? ["今日新闻"] : []),
+    "Andy PM Agent",
+    "日度Agent",
+    "周报Agent",
+    "半导体Agent",
+    "消费Agent",
+    "工业商品Agent",
+    "日本Agent",
+    "军工金融Agent"
+  ];
+  els.agentTabs.innerHTML = tabs.map((tab, index) => `
+    <button class="${(state.railView === "daily" ? tab === "今日新闻" : index === 0) ? "active" : ""}" type="button">${escapeHtml(tab)}</button>
+  `).join("");
+}
+
 function selectCompany(companyId) {
   state.activeCompanyId = companyId;
   state.activeItemId = "";
@@ -2158,6 +2177,7 @@ function renderEditor() {
 
 function render() {
   renderRailTabs();
+  renderAgentTabs();
   renderIntakeQueue();
   renderNotes();
   renderFolderBoard();
