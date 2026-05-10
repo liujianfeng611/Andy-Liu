@@ -1078,7 +1078,14 @@ function renderDailyNewsBoard() {
 
   const activeTab = state.dailyNewsTab === "generate" ? "generate" : "sources";
   const sources = dailyNewsSources();
-  const rows = dailyNewsItems();
+  const rows = (dailyNewsItems().length ? dailyNewsItems() : state.items.filter((item) => item.type === "open")).slice(0, 68);
+  const newsDate = new Date(state.lastFetchedAt || Date.now()).toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).replaceAll("/", "/");
+  const updatedAt = new Date(state.lastFetchedAt || Date.now()).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  const hotTags = dailyHotTags(rows);
   const sourceCards = sources.map((source) => `
     <article class="daily-source-card">
       <div>
@@ -1088,7 +1095,21 @@ function renderDailyNewsBoard() {
       <button data-delete-news-source="${escapeHtml(source.id)}" type="button">删除</button>
     </article>
   `).join("");
-  const resultCards = rows.map((item) => {
+  const topNews = rows.slice(0, 5).map((item, index) => {
+    const company = itemCompany(item);
+    const ticker = company?.ticker || item.source || (index === 1 ? "-" : "NEWS");
+    return `
+      <button class="daily-headline-row" data-daily-item-id="${escapeHtml(item.id)}" type="button">
+        <span class="daily-ticker">${escapeHtml(ticker)}</span>
+        <strong>${escapeHtml(readableText(item.title || "未命名新闻"))}</strong>
+        <em>${escapeHtml(dailyNewsSummary(item))}</em>
+        <small>${escapeHtml(item.source || "open web")}</small>
+        <time>${escapeHtml(relativeNewsTime(item.publishedAt || item.createdAt))}</time>
+      </button>
+    `;
+  }).join("");
+  const categoryCards = dailyCategoryCards(rows);
+  const resultCards = rows.slice(0, 20).map((item) => {
     const link = materialUrl(item);
     return `
       <article class="daily-news-card">
@@ -1097,7 +1118,7 @@ function renderDailyNewsBoard() {
           <em>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</em>
         </div>
         <h3>${escapeHtml(readableText(item.title || "未命名新闻"))}</h3>
-        <p>${escapeHtml(readableText(item.summary || item.sourceText || ""))}</p>
+        <p>${escapeHtml(dailyNewsSummary(item))}</p>
         <div class="daily-news-card-actions">
           ${link ? `<button data-open-url="${escapeHtml(link)}" type="button">打开原文</button>` : ""}
           <button data-daily-item-id="${escapeHtml(item.id)}" type="button">作为笔记打开</button>
@@ -1109,13 +1130,16 @@ function renderDailyNewsBoard() {
   els.dailyNewsBoard.innerHTML = `
     <div class="daily-news-top">
       <div>
-        <span>Daily News</span>
-        <h2>今日新闻</h2>
-        <p>先维护你常看的新闻源，再一键抓取并沉淀成今天的新闻流。</p>
+        <h2><span class="daily-title-icon">▣</span>Daily Brief</h2>
+        <div class="daily-news-meta">
+          <span>${escapeHtml(newsDate)}</span>
+          <strong>${rows.length} 条 · ${escapeHtml(updatedAt)}</strong>
+        </div>
       </div>
       <nav class="daily-news-tabs" aria-label="今日新闻">
-        <button class="${activeTab === "sources" ? "active" : ""}" data-daily-news-tab="sources" type="button">新闻源</button>
+        <button class="${activeTab === "sources" ? "active" : ""}" data-daily-news-tab="sources" type="button">⚙ 新闻源</button>
         <button class="${activeTab === "generate" ? "active" : ""}" data-daily-news-tab="generate" type="button">生成今日新闻</button>
+        <button class="primary" data-generate-daily-news type="button" ${dailyNewsBusy || !sources.length ? "disabled" : ""}>↻ ${dailyNewsBusy ? "扫描中" : "立即扫描"}</button>
       </nav>
     </div>
 
@@ -1131,7 +1155,36 @@ function renderDailyNewsBoard() {
         </div>
       </section>
     ` : `
-      <section class="daily-news-panel">
+      <section class="daily-agent-brief">
+        <button class="daily-collapse" type="button">⌄</button>
+        <div class="daily-agent-label">
+          <span>▣</span>
+          <strong>AI Agent 播报</strong>
+          <em>Managed Agent</em>
+        </div>
+        <div class="daily-agent-action">
+          <button data-generate-daily-news type="button" ${dailyNewsBusy || !sources.length ? "disabled" : ""}>✧ 生成播报</button>
+          <span>约 $0.5-1.5 / 次</span>
+        </div>
+      </section>
+
+      <section class="daily-hot-tags">
+        <strong>7天热度</strong>
+        ${hotTags.map(([tag, count]) => `<button type="button">${escapeHtml(tag)} <span>${count}</span></button>`).join("") || `<span class="daily-muted">生成后会出现热词。</span>`}
+      </section>
+
+      <section class="daily-headlines-panel">
+        <div class="daily-section-title"><span>⌄ ☆</span><strong>今日要闻</strong><em>${Math.min(rows.length, 5)}</em></div>
+        <div class="daily-headline-list">
+          ${topNews || `<div class="empty-list">点击“立即扫描”后，今日要闻会显示在这里。</div>`}
+        </div>
+      </section>
+
+      <section class="daily-category-grid">
+        ${categoryCards}
+      </section>
+
+      <section class="daily-news-panel compact">
         <div class="daily-news-generate">
           <div>
             <strong>${sources.length ? `${sources.length} 个新闻源已就绪` : "还没有新闻源"}</strong>
@@ -1147,6 +1200,61 @@ function renderDailyNewsBoard() {
       </section>
     `}
   `;
+}
+
+function dailyHotTags(rows) {
+  const ignored = new Set(["open", "web", "news", "今日新闻", "新闻源", "抓取失败"]);
+  const counts = new Map();
+  rows.forEach((item) => {
+    const tags = [
+      itemCompany(item)?.ticker,
+      item.source,
+      ...materialTags(item),
+      ...(readableText(item.title || "").match(/\b[A-Z][A-Za-z0-9]{1,12}\b/g) || [])
+    ].filter(Boolean);
+    tags.forEach((tag) => {
+      const clean = String(tag).trim();
+      if (!clean || ignored.has(clean)) return;
+      counts.set(clean, (counts.get(clean) || 0) + 1);
+    });
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+}
+
+function relativeNewsTime(value) {
+  const time = new Date(value || Date.now()).getTime();
+  if (Number.isNaN(time)) return "刚刚";
+  const hours = Math.max(0, Math.round((Date.now() - time) / 36e5));
+  if (hours < 1) return "刚刚";
+  if (hours < 24) return `${hours}小时前`;
+  return hours < 48 ? "昨天" : formatTime(value);
+}
+
+function dailyCategoryCards(rows) {
+  const groups = [
+    ["科技资讯", "▰", /ai|chip|semiconductor|cloud|software|tech|gpu|算力|芯片|云|软件|科技/i],
+    ["AI动态", "▣", /openai|anthropic|gemini|agent|model|llm|ai|claude|gpt|模型|智能体/i],
+    ["公司与财报", "◫", /earnings|revenue|margin|guidance|sales|profit|财报|收入|利润|毛利|指引/i],
+    ["市场与风险", "◇", /stock|market|rate|risk|regulat|lawsuit|政策|监管|市场|风险|利率/i]
+  ].map(([label, icon, pattern]) => {
+    const matched = rows.filter((item) => pattern.test(`${item.title || ""} ${item.summary || ""} ${item.sourceText || ""}`)).slice(0, 4);
+    return { label, icon, rows: matched.length ? matched : rows.slice(0, 2) };
+  });
+  return groups.map((group) => `
+    <article class="daily-category-card">
+      <div class="daily-section-title"><span>${escapeHtml(group.icon)}</span><strong>${escapeHtml(group.label)}</strong><em>${group.rows.length}</em></div>
+      <p>${escapeHtml(group.rows.map((item) => dailyNewsSummary(item) || readableText(item.title)).filter(Boolean).join("。").slice(0, 260) || "扫描后会生成这一类新闻摘要。")}</p>
+    </article>
+  `).join("");
+}
+
+function dailyNewsSummary(item) {
+  return readableText(item?.summary || item?.sourceText || item?.title || "")
+    .replace(/[.#]?[a-z0-9:_-][a-z0-9:_.,#>-]{0,60}\s*\{[^}]{0,240}\}/g, " ")
+    .replace(/a:link\s*,\s*a:visited\s*\{[^}]{0,240}\}/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 320);
 }
 
 function pseudoPrice(company) {
@@ -2831,7 +2939,7 @@ function deleteDailyNewsSource(sourceId) {
 
 function newsItemFromFetch(source, data, now) {
   const text = cleanTranscriptText(data.text || "");
-  const summary = (text || data.description || data.title || source.url).replace(/\s+/g, " ").trim().slice(0, 360);
+  const summary = (data.description || data.title || text || source.url).replace(/\s+/g, " ").trim().slice(0, 360);
   return {
     id: `daily-news-${source.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     companyId: null,
