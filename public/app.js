@@ -139,6 +139,7 @@ const els = {
   researchQueue: document.querySelector("#researchQueue"),
   folderBoard: document.querySelector("#folderBoard"),
   companyWorkspace: document.querySelector("#companyWorkspace"),
+  companyUploadInput: document.querySelector("#companyUploadInput"),
   folderUploadInput: document.querySelector("#folderUploadInput"),
   transcriptFileInput: document.querySelector("#transcriptFileInput"),
   regionalMarkets: document.querySelector("#regionalMarkets"),
@@ -1833,7 +1834,7 @@ function renderCompanyWorkspace() {
         <button data-company-tab="model" type="button">批量识别Ticker</button>
         <button data-company-tab="deep" type="button">AI伙伴</button>
         <button data-company-tab="model" type="button">上传模型</button>
-        <button data-upload-current-company type="button">添加材料</button>
+        <button data-upload-current-company type="button">上传文件</button>
         <button data-open-folder-for-company="${escapeHtml(company.id)}" type="button">普通文件夹</button>
       </div>
     </header>
@@ -2246,6 +2247,7 @@ async function importFiles(files) {
   addItems(imported);
   state.railView = "folders";
   els.fileInput.value = "";
+  els.companyUploadInput.value = "";
 }
 
 function updateActiveCompanyFromForm() {
@@ -2888,7 +2890,7 @@ document.addEventListener("click", (event) => {
   }
   const uploadCurrentCompany = event.target.closest("[data-upload-current-company]");
   if (uploadCurrentCompany) {
-    els.fileInput.click();
+    els.companyUploadInput.click();
     return;
   }
   const attachTranscript = event.target.closest("[data-attach-transcript-file]");
@@ -2940,7 +2942,7 @@ els.globalUploadBtn.addEventListener("click", () => {
     els.folderUploadInput.click();
     return;
   }
-  els.fileInput.click();
+  els.companyUploadInput.click();
 });
 document.querySelectorAll("[data-rail-view]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -2971,6 +2973,7 @@ els.searchInput.addEventListener("input", (event) => {
   saveState();
   render();
 });
+els.companyUploadInput.addEventListener("change", (event) => importFiles(event.target.files));
 els.fileInput.addEventListener("change", (event) => importFiles(event.target.files));
 els.folderUploadInput.addEventListener("change", (event) => uploadFilesToCustomFolder(event.target.files, event.target.dataset.folderId));
 els.transcriptFileInput.addEventListener("change", (event) => attachTranscriptFile(event.target.files));
