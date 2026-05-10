@@ -250,7 +250,7 @@ body.company-mode .terminal-shell {
 }
 
 .note-item.uploaded-note {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   border-radius: 0;
   padding: 0;
 }
@@ -268,6 +268,32 @@ body.company-mode .terminal-shell {
   background: transparent;
   padding: 16px 22px;
   text-align: left;
+}
+
+.note-delete {
+  align-self: center;
+  justify-self: end;
+  margin-right: 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 900;
+  opacity: 0;
+}
+
+.note-item:hover .note-delete,
+.note-item.active .note-delete {
+  opacity: 1;
+}
+
+.note-delete:hover {
+  border-color: rgba(255, 105, 128, 0.38);
+  background: rgba(255, 105, 128, 0.12);
+  color: #ff8fa3;
 }
 
 .note-title {

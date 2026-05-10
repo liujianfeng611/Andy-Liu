@@ -777,6 +777,7 @@ function renderNotes() {
         <div class="note-title">${escapeHtml(readableText(item.title))}</div>
         <div class="note-meta">${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</div>
       </button>
+      <button class="note-delete" data-delete-item="${escapeHtml(item.id)}" type="button" title="删除笔记">删除</button>
     </article>
   `;
   }).join("") || `<div class="empty-list">${emptyText}</div>`;
@@ -1744,6 +1745,7 @@ function renderNoteReader() {
           <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
           <span>▱ 归档</span>
           <button type="button">✓ 归档</button>
+          <button data-delete-item="${escapeHtml(item.id)}" type="button">删除</button>
         </div>
       </header>
 
@@ -2835,6 +2837,25 @@ function saveCurrentNoteIdea({ renderAfter = false } = {}) {
   if (renderAfter) render();
 }
 
+function deleteItem(itemId) {
+  const item = state.items.find((row) => row.id === itemId);
+  if (!item) return;
+  const confirmed = confirm(`删除这条笔记？\n\n${readableText(item.title || "未命名笔记")}`);
+  if (!confirmed) return;
+  state.items = state.items.filter((row) => row.id !== itemId);
+  if (state.activeItemId === itemId) {
+    const next = noteListItems()[0] || state.items.find(isVisibleMaterial) || null;
+    state.activeItemId = next?.id || "";
+    state.readerMode = next ? "note" : "company";
+    state.noteReaderTab = "transcript";
+  }
+  saveState();
+  render();
+  api("items", { method: "DELETE", body: JSON.stringify({ ids: [itemId] }) }).catch((error) => {
+    console.warn("Deleted locally only:", error.message);
+  });
+}
+
 els.refreshBtn.addEventListener("click", refreshOpenInfo);
 document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-open-url]");
@@ -2846,6 +2867,13 @@ document.addEventListener("click", (event) => {
   openExternalUrl(url);
 });
 document.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-delete-item]");
+  if (deleteButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    deleteItem(deleteButton.dataset.deleteItem);
+    return;
+  }
   const noteReaderTab = event.target.closest("[data-note-reader-tab]");
   if (noteReaderTab) {
     if (document.querySelector("[data-note-idea-input]")) saveCurrentNoteIdea();
