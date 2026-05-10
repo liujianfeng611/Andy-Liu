@@ -105,6 +105,16 @@ body.daily-mode .terminal-shell {
   font-size: 20px;
 }
 
+.theme-toggle {
+  border-radius: 999px;
+  font-size: 19px;
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #eee8df;
+}
+
 .rail-tabs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2408,6 +2418,114 @@ body.note-reader-mode .main-stage {
 .daily-category-news-list span {
   color: var(--muted);
   font-size: 11px;
+}
+
+body.light-theme {
+  background: #f7f7f6;
+  color: #2d2925;
+}
+
+body.light-theme .terminal-shell {
+  background: #f7f7f6;
+}
+
+body.light-theme .left-rail {
+  background: #fbfbfa;
+  border-right-color: #e7e2dd;
+  color: #2b2825;
+}
+
+body.light-theme .rail-head strong,
+body.light-theme .rail-tabs button.active,
+body.light-theme .user-card strong,
+body.light-theme .note-stream strong,
+body.light-theme .note-title,
+body.light-theme .card-title strong,
+body.light-theme .drawer-title h2,
+body.light-theme .panel-head strong {
+  color: #27221f;
+}
+
+body.light-theme .rail-tabs,
+body.light-theme .note-item,
+body.light-theme .user-card,
+body.light-theme .card,
+body.light-theme .drawer-panel,
+body.light-theme .editor-panel,
+body.light-theme .intake-card,
+body.light-theme .company-workspace article,
+body.light-theme .company-metrics article,
+body.light-theme .workspace-tabs,
+body.light-theme .brief-box,
+body.light-theme .workflow-step,
+body.light-theme .pm-board,
+body.light-theme .market-card,
+body.light-theme .agent-card {
+  border-color: #e4dfd9;
+}
+
+body.light-theme .card,
+body.light-theme .drawer-panel,
+body.light-theme .editor-panel,
+body.light-theme .intake-card,
+body.light-theme .brief-box,
+body.light-theme .workflow-step,
+body.light-theme .pm-board,
+body.light-theme .market-card,
+body.light-theme .agent-card,
+body.light-theme .company-metrics article,
+body.light-theme .workspace-tabs {
+  background: #fff;
+  box-shadow: none;
+}
+
+body.light-theme .agent-tabs {
+  border-bottom-color: #e6e1dc;
+  background: rgba(248, 247, 246, 0.96);
+}
+
+body.light-theme .agent-tabs button,
+body.light-theme .rail-tabs button,
+body.light-theme .ghost-icon,
+body.light-theme .note-meta,
+body.light-theme .user-card span,
+body.light-theme .muted-row,
+body.light-theme .daily-news-meta strong {
+  color: #837a72;
+}
+
+body.light-theme .agent-tabs button.active {
+  background: #e8f0ff;
+  color: #2563eb;
+}
+
+body.light-theme .theme-toggle:hover {
+  background: #eeeae6;
+  color: #24211f;
+}
+
+body.light-theme .note-item {
+  border-bottom-color: #ece7e1;
+}
+
+body.light-theme .note-item:hover,
+body.light-theme .note-item.active,
+body.light-theme .note-item.uploaded-note:hover,
+body.light-theme .note-item.uploaded-note.active {
+  background: #f1eeeb;
+}
+
+body.light-theme .tag {
+  background: #e6e1dc;
+  color: #777069;
+}
+
+body.light-theme input,
+body.light-theme textarea,
+body.light-theme select {
+  border-color: #d9d3cd;
+  background: #fff;
+  color: #24211f;
 }
 
 body.daily-mode {

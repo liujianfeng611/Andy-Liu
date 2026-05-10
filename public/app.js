@@ -9,6 +9,7 @@ const defaultState = {
   noteReaderTab: "transcript",
   readerMode: "company",
   railView: "notes",
+  themeMode: "dark",
   dailyNewsTab: "sources",
   dailyNewsSources: [],
   dailyNewsItems: [],
@@ -287,6 +288,7 @@ const els = {
   impactMatrix: document.querySelector("#impactMatrix"),
   researchQueue: document.querySelector("#researchQueue"),
   agentTabs: document.querySelector("#agentTabs"),
+  themeToggleBtn: document.querySelector("#themeToggleBtn"),
   folderBoard: document.querySelector("#folderBoard"),
   dailyNewsBoard: document.querySelector("#dailyNewsBoard"),
   companyWorkspace: document.querySelector("#companyWorkspace"),
@@ -2596,6 +2598,16 @@ function renderRailTabs() {
   });
 }
 
+function renderTheme() {
+  const mode = state.themeMode === "light" ? "light" : "dark";
+  document.body.classList.toggle("light-theme", mode === "light");
+  document.body.classList.toggle("dark-theme", mode !== "light");
+  if (els.themeToggleBtn) {
+    els.themeToggleBtn.textContent = mode === "light" ? "☾" : "☼";
+    els.themeToggleBtn.title = mode === "light" ? "切换到夜晚主题" : "切换到白天主题";
+  }
+}
+
 function renderAgentTabs() {
   const tabs = [
     "首页",
@@ -2667,6 +2679,7 @@ function renderEditor() {
 }
 
 function render() {
+  renderTheme();
   renderRailTabs();
   renderAgentTabs();
   renderIntakeQueue();
@@ -3802,6 +3815,11 @@ document.addEventListener("keydown", (event) => {
   if (!sourceInput || event.key !== "Enter") return;
   event.preventDefault();
   addDailyNewsSource();
+});
+els.themeToggleBtn?.addEventListener("click", () => {
+  state.themeMode = state.themeMode === "light" ? "dark" : "light";
+  saveState();
+  render();
 });
 els.globalUploadBtn.addEventListener("click", () => {
   const selected = Array.isArray(state.folderPath) ? state.folderPath[0] || "" : "";
