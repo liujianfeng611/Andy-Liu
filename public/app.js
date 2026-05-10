@@ -476,6 +476,19 @@ function materialView(item) {
   return cleanTranscriptText(item?.viewText || "");
 }
 
+function originalNoteText(item) {
+  const text = [
+    item?.sourceText,
+    item?.rawText,
+    readableText(item?.summary)
+  ].map(cleanTranscriptText).filter(Boolean).join("\n\n").trim();
+  return cleanTranscriptText(text);
+}
+
+function materialTranslation(item) {
+  return cleanTranscriptText(item?.translationText || item?.translatedText || "");
+}
+
 function materialTranscript(item) {
   const text = [
     item?.sourceText,
@@ -1316,8 +1329,12 @@ function renderNoteReaderBody(item, activeTab) {
     `;
   }
 
+  if (activeTab === "analyst") {
+    return renderNoteAnalyst(item);
+  }
+
   if (activeTab === "handler") {
-    return renderNoteProcessor(item, transcript);
+    return renderNoteProcessor(item);
   }
 
   const tabLabel = noteReaderTabs.find(([id]) => id === activeTab)?.[1] || "分析";
@@ -1342,51 +1359,98 @@ function processorStoredKey(provider) {
   }
 }
 
-function renderNoteProcessor(item, transcript) {
+function renderProcessorControls({ buttonText, busyText, dataAttr, source }) {
   const currentModel = localStorage.getItem("andy-workstation-note-processor-model") || noteProcessorModels[0].id;
   const selected = noteProcessorModels.find((model) => model.id === currentModel) || noteProcessorModels[0];
   const savedKey = processorStoredKey(selected.provider);
-  const processed = materialView(item);
-  const source = transcript || materialSource(item) || readableText(item.summary);
+  return `
+    <div class="processor-controls">
+      <label>模型
+        <select id="processorModelSelect">
+          ${noteProcessorModels.map((model) => `
+            <option value="${escapeHtml(model.id)}" ${model.id === selected.id ? "selected" : ""}>${escapeHtml(model.label)}</option>
+          `).join("")}
+        </select>
+      </label>
+      <label>API Key（可留空使用云端环境变量）
+        <input id="processorApiKeyInput" type="password" placeholder="${savedKey ? "已保存到本机浏览器" : "粘贴当前模型供应商的 key"}" value="" />
+      </label>
+      <label class="processor-checkbox">
+        <input id="processorRememberKey" type="checkbox" ${savedKey ? "checked" : ""} />
+        <span>仅保存在本机浏览器</span>
+      </label>
+      <button ${dataAttr} type="button" ${noteProcessorBusy || !source ? "disabled" : ""}>${noteProcessorBusy ? busyText : buttonText}</button>
+    </div>
+  `;
+}
+
+function renderNoteProcessor(item) {
+  const currentModel = localStorage.getItem("andy-workstation-note-processor-model") || noteProcessorModels[0].id;
+  const selected = noteProcessorModels.find((model) => model.id === currentModel) || noteProcessorModels[0];
+  const translated = materialTranslation(item);
+  const source = originalNoteText(item);
   return `
     <section class="processor-panel">
       <div class="processor-head">
         <div>
           <strong>处理者</strong>
-          <p>选择模型，把当前原始笔记清洗成适合投研分析的结构化材料。</p>
+          <p>选择模型，把当前笔记原文完整翻译成易读中文。</p>
         </div>
         <span>${escapeHtml(selected.label)}</span>
       </div>
 
-      <div class="processor-controls">
-        <label>模型
-          <select id="processorModelSelect">
-            ${noteProcessorModels.map((model) => `
-              <option value="${escapeHtml(model.id)}" ${model.id === selected.id ? "selected" : ""}>${escapeHtml(model.label)}</option>
-            `).join("")}
-          </select>
-        </label>
-        <label>API Key（可留空使用云端环境变量）
-          <input id="processorApiKeyInput" type="password" placeholder="${savedKey ? "已保存到本机浏览器" : "粘贴当前模型供应商的 key"}" value="" />
-        </label>
-        <label class="processor-checkbox">
-          <input id="processorRememberKey" type="checkbox" ${savedKey ? "checked" : ""} />
-          <span>仅保存在本机浏览器</span>
-        </label>
-        <button data-process-note type="button" ${noteProcessorBusy || !source ? "disabled" : ""}>${noteProcessorBusy ? "处理中..." : "清洗当前笔记"}</button>
-      </div>
+      ${renderProcessorControls({ buttonText: "翻译当前笔记", busyText: "翻译中...", dataAttr: "data-translate-note", source })}
       ${noteProcessorStatus ? `<div class="processor-status">${escapeHtml(noteProcessorStatus)}</div>` : ""}
 
       <div class="processor-layout">
         <article>
           <div class="processor-section-title">
-            <strong>清洗结果</strong>
-            <span>${processed ? "已生成" : source ? `${source.length.toLocaleString()} 字符待处理` : "没有原文"}</span>
+            <strong>完整翻译</strong>
+            <span>${translated ? "已生成" : source ? `${source.length.toLocaleString()} 字符待翻译` : "没有原文"}</span>
           </div>
-          ${processed ? renderProcessedNote(processed) : `<div class="processed-placeholder">点击“清洗当前笔记”后，会按 bullet point 生成：核心结论、Facts（原文事实）、Opinion / 判断、重要数字与实体、待验证问题和可归档摘要。</div>`}
+          ${translated ? renderTranslationText(translated) : `<div class="processed-placeholder">点击“翻译当前笔记”后，这里会显示笔记原文的完整中文翻译。</div>`}
         </article>
       </div>
     </section>
+  `;
+}
+
+function renderNoteAnalyst(item) {
+  const currentModel = localStorage.getItem("andy-workstation-note-processor-model") || noteProcessorModels[0].id;
+  const selected = noteProcessorModels.find((model) => model.id === currentModel) || noteProcessorModels[0];
+  const processed = materialView(item);
+  const source = originalNoteText(item);
+  return `
+    <section class="processor-panel">
+      <div class="processor-head">
+        <div>
+          <strong>小分析师</strong>
+          <p>把当前笔记整理成核心结论、Facts 和 Opinion，便于投研分析。</p>
+        </div>
+        <span>${escapeHtml(selected.label)}</span>
+      </div>
+
+      ${renderProcessorControls({ buttonText: "分析当前笔记", busyText: "分析中...", dataAttr: "data-analyze-note", source })}
+      ${noteProcessorStatus ? `<div class="processor-status">${escapeHtml(noteProcessorStatus)}</div>` : ""}
+
+      <div class="processor-layout">
+        <article>
+          <div class="processor-section-title">
+            <strong>分析结果</strong>
+            <span>${processed ? "已生成" : source ? `${source.length.toLocaleString()} 字符待分析` : "没有原文"}</span>
+          </div>
+          ${processed ? renderProcessedNote(processed) : `<div class="processed-placeholder">点击“分析当前笔记”后，会按 bullet point 生成：核心结论、Facts（原文事实）、Opinion / 判断、重要数字与实体、待验证问题和可归档摘要。</div>`}
+        </article>
+      </div>
+    </section>
+  `;
+}
+
+function renderTranslationText(text) {
+  return `
+    <article class="translation-note">
+      ${escapeHtml(text).split(/\n{2,}|\n/).filter(Boolean).map((line) => `<p>${line}</p>`).join("")}
+    </article>
   `;
 }
 
@@ -2291,16 +2355,16 @@ async function attachTranscriptFile(files) {
   persistItems([item]);
 }
 
-async function processCurrentNote() {
+async function processCurrentNote(task = "analyze") {
   const item = selectedNoteItem();
   if (!item || noteProcessorBusy) return;
   const modelId = document.querySelector("#processorModelSelect")?.value || noteProcessorModels[0].id;
   const model = noteProcessorModels.find((row) => row.id === modelId) || noteProcessorModels[0];
   const apiKeyInput = document.querySelector("#processorApiKeyInput")?.value.trim() || "";
   const remember = document.querySelector("#processorRememberKey")?.checked;
-  const source = materialTranscript(item) || materialSource(item) || readableText(item.summary);
+  const source = originalNoteText(item);
   if (!source) {
-    noteProcessorStatus = "当前笔记没有可清洗的原文。请先上传/读取文件内容，或切到 Transcript 检查是否有正文。";
+    noteProcessorStatus = "当前笔记没有可处理的原文。请先上传/读取文件内容，或切到 Transcript 检查是否有正文。";
     render();
     return;
   }
@@ -2315,7 +2379,7 @@ async function processCurrentNote() {
   }
 
   noteProcessorBusy = true;
-  noteProcessorStatus = `正在使用 ${model.label} 清洗当前笔记...`;
+  noteProcessorStatus = `正在使用 ${model.label} ${task === "translate" ? "翻译" : "分析"}当前笔记...`;
   render();
 
   try {
@@ -2324,23 +2388,33 @@ async function processCurrentNote() {
       body: JSON.stringify({
         model: model.id,
         provider: model.provider,
+        task,
         apiKey: apiKeyInput || processorStoredKey(model.provider),
         title: item.title,
         source
       })
     });
     const result = data.result || "";
-    item.viewText = result;
-    item.summary = result.replace(/\s+/g, " ").trim().slice(0, 280);
-    item.tags = [...new Set([...materialTags(item), "已清洗", model.label])].slice(0, 12);
-    item.processor = { model: model.id, provider: model.provider, processedAt: new Date().toISOString() };
+    if (task === "translate") {
+      item.translationText = result;
+      item.tags = [...new Set([...materialTags(item), "已翻译", model.label])].slice(0, 12);
+    } else {
+      item.viewText = result;
+      item.summary = result.replace(/\s+/g, " ").trim().slice(0, 280);
+      item.tags = [...new Set([...materialTags(item), "已分析", model.label])].slice(0, 12);
+    }
+    item.processor = { model: model.id, provider: model.provider, task, processedAt: new Date().toISOString() };
     item.publishedAt = new Date().toISOString();
-    noteProcessorStatus = `已完成：${model.label} 已生成清洗结果。`;
+    noteProcessorStatus = `已完成：${model.label} 已生成${task === "translate" ? "完整翻译" : "分析结果"}。`;
     saveState();
     persistItems([item]);
   } catch (error) {
     noteProcessorStatus = `处理失败：${error.message || "模型接口暂时不可用"}`;
-    item.viewText = `## 处理失败\n- ${error.message || "模型接口暂时不可用"}\n- 请检查 API key、模型名或 Cloudflare 环境变量。`;
+    if (task === "translate") {
+      item.translationText = `处理失败：${error.message || "模型接口暂时不可用"}\n请检查 API key、模型名或 Cloudflare 环境变量。`;
+    } else {
+      item.viewText = `## 处理失败\n- ${error.message || "模型接口暂时不可用"}\n- 请检查 API key、模型名或 Cloudflare 环境变量。`;
+    }
     saveState();
   } finally {
     noteProcessorBusy = false;
@@ -2435,9 +2509,14 @@ document.addEventListener("click", (event) => {
     els.transcriptFileInput.click();
     return;
   }
-  const processNote = event.target.closest("[data-process-note]");
-  if (processNote) {
-    processCurrentNote();
+  const translateNote = event.target.closest("[data-translate-note]");
+  if (translateNote) {
+    processCurrentNote("translate");
+    return;
+  }
+  const analyzeNote = event.target.closest("[data-analyze-note]");
+  if (analyzeNote) {
+    processCurrentNote("analyze");
     return;
   }
   const openCompanyFolder = event.target.closest("[data-open-folder-for-company]");

@@ -276,7 +276,21 @@ async function generatePmAnswer(question, company, items) {
   return cleanText(data.candidates?.[0]?.content?.parts?.map((part) => part.text).join("\n")) || "AI 暂无返回。";
 }
 
-function noteProcessPrompt(title, source) {
+function noteProcessPrompt(title, source, task = "analyze") {
+  if (task === "translate") {
+    return [
+      "你是专业投研翻译员。请把原始笔记完整翻译成中文。",
+      "要求：",
+      "- 尽量保留原文全部信息、数字、公司名、人名、时间、术语和语气。",
+      "- 不要总结，不要做投资分析，不要添加原文没有的信息。",
+      "- 如果原文已有中文，可润色成更通顺的中文；英文术语可保留括号原文。",
+      "- 按原文逻辑分段，输出易读中文。",
+      `标题：${title || "未命名笔记"}`,
+      "原始笔记：",
+      source
+    ].join("\n");
+  }
+
   return [
     "你是基金经理的投研笔记处理器。请把原始笔记清洗成易于分析、可归档、可复盘的中文材料。",
     "严格要求：不要编造原文没有的信息；事实和观点必须分开；所有内容必须使用 bullet points。",
@@ -316,12 +330,13 @@ function envKeyForProvider(provider) {
 async function processNoteLocal(payload) {
   const provider = cleanText(payload.provider);
   const model = cleanText(payload.model);
+  const task = cleanText(payload.task) || "analyze";
   const source = String(payload.source || "").trim();
   if (!provider || !model || !source) throw new Error("Missing provider, model, or source");
   const keyName = envKeyForProvider(provider);
   const apiKey = cleanText(payload.apiKey) || process.env[keyName];
   if (!apiKey) throw new Error(`Missing API key. Set ${keyName}, or paste it in the processor panel.`);
-  const prompt = noteProcessPrompt(cleanText(payload.title), source.slice(0, 120000));
+  const prompt = noteProcessPrompt(cleanText(payload.title), source.slice(0, 120000), task);
   const result = provider === "google"
     ? await callGoogleModel(apiKey, model, prompt)
     : provider === "openai"
@@ -331,7 +346,7 @@ async function processNoteLocal(payload) {
         minimax: process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1/chat/completions",
         mimo: process.env.MIMO_BASE_URL || "https://api.mimo.ai/v1/chat/completions"
       }[provider], provider);
-  return { result, provider, model, processedAt: new Date().toISOString() };
+  return { result, provider, model, task, processedAt: new Date().toISOString() };
 }
 
 async function callGoogleModel(apiKey, model, prompt) {
