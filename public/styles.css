@@ -1980,6 +1980,128 @@ body.note-reader-mode .main-stage {
   gap: 10px;
 }
 
+.daily-source-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 16px 0 10px;
+}
+
+.daily-source-summary strong {
+  color: #eee8df;
+  font-size: 15px;
+}
+
+.daily-source-summary span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.daily-source-catalog {
+  display: grid;
+  gap: 12px;
+}
+
+.daily-source-category {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0b0a09;
+  overflow: hidden;
+}
+
+.daily-source-category header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  background: #14110f;
+  padding: 11px 12px;
+}
+
+.daily-source-category header div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.daily-source-category header span {
+  font-size: 18px;
+}
+
+.daily-source-category header strong {
+  color: #eee8df;
+  font-size: 15px;
+}
+
+.daily-source-category header em {
+  border-radius: 999px;
+  background: #24211e;
+  color: var(--muted);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.daily-source-category header button,
+.daily-source-category td button {
+  border: 1px solid #145f83;
+  border-radius: 7px;
+  background: #0f3d55;
+  color: #abe7ff;
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.daily-source-category td button:disabled {
+  border-color: var(--line);
+  background: #171412;
+  color: var(--muted);
+  cursor: default;
+}
+
+.daily-source-table-wrap {
+  overflow-x: auto;
+}
+
+.daily-source-category table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.daily-source-category th,
+.daily-source-category td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 9px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.daily-source-category th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.daily-source-category td {
+  color: #cfc7bf;
+  font-size: 12px;
+}
+
+.daily-source-category td strong {
+  color: #eee8df;
+}
+
+.daily-source-category tr:last-child td {
+  border-bottom: 0;
+}
+
 .daily-source-card {
   display: flex;
   align-items: center;

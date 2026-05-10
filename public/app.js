@@ -100,6 +100,149 @@ const noteProcessorModels = [
   { id: "mimo-v2.5-pro", label: "Mimo v2.5 Pro", provider: "mimo" }
 ];
 
+const dailyNewsSourceCatalog = [
+  {
+    category: "科技资讯",
+    icon: "▣",
+    rows: [
+      ["theverge.com", "latest tech news", 4],
+      ["techcrunch.com", "latest startup tech news", 4],
+      ["arstechnica.com", "latest tech news", 3],
+      ["wired.com", "latest tech news", 3],
+      ["platformer.news", "latest tech analysis", 2],
+      ["stratechery.com", "latest analysis", 3],
+      ["theinformation.com", "latest tech news", 3],
+      ["techmeme.com", "latest tech news", 3],
+      ["9to5mac.com", "latest Apple news", 2]
+    ]
+  },
+  {
+    category: "金融新闻",
+    icon: "💰",
+    rows: [
+      ["cnbc.com", "latest business news", 4],
+      ["reuters.com", "latest business markets news", 4],
+      ["ft.com", "latest business news", 3],
+      ["bloomberg.com", "latest markets business news", 4],
+      ["wsj.com", "latest business markets news", 3],
+      ["marketwatch.com", "latest stock market news", 3],
+      ["seekingalpha.com", "latest stock news", 3],
+      ["semafor.com", "latest business news", 2],
+      ["广义搜索", "earnings report beat miss guidance revenue quarterly results", 4]
+    ]
+  },
+  {
+    category: "AI动态",
+    icon: "🤖",
+    rows: [
+      ["techcrunch.com", "latest AI startup news", 3],
+      ["venturebeat.com", "latest AI news", 3],
+      ["openrouter.ai", "rankings models", 3],
+      ["anthropic.com", "latest news announcements", 2],
+      ["openai.com", "latest news announcements", 2],
+      ["theinformation.com", "latest AI news", 3],
+      ["huggingface.co", "latest model release trending", 2],
+      ["artificialanalysis.ai", "latest AI model benchmark", 2],
+      ["广义搜索", "OpenAI Anthropic Google DeepMind model release ARR funding partnership", 4],
+      ["广义搜索", "LLM benchmark Claude GPT Gemini new release", 3],
+      ["广义搜索", "AI agent coding autonomous tool use enterprise", 3]
+    ]
+  },
+  {
+    category: "半导体",
+    icon: "🔬",
+    rows: [
+      ["semianalysis.com", "latest semiconductor analysis", 4],
+      ["tomshardware.com", "latest hardware news", 3],
+      ["digitimes.com", "latest semiconductor news", 3],
+      ["semiwiki.com", "latest semiconductor news", 3],
+      ["eenewseurope.com", "latest semiconductor news", 2],
+      ["广义搜索", "TSMC ASML Nvidia AMD Broadcom Marvell chip semiconductor news", 4],
+      ["广义搜索", "Samsung SK Hynix Micron memory HBM chip news", 3],
+      ["广义搜索", "GPU AI chip data center power consumption cooling", 2]
+    ]
+  },
+  {
+    category: "亚洲",
+    icon: "🌏",
+    rows: [
+      ["36kr.com", "latest Chinese tech news", 4],
+      ["nikkeiasia.com", "latest Asia business news", 4],
+      ["scmp.com", "latest China business news", 4],
+      ["techinasia.com", "latest Asia startup news", 3],
+      ["caixinglobal.com", "latest China business news", 3],
+      ["pandaily.com", "latest China tech news", 3],
+      ["koreajoongangdaily.joins.com", "latest Korea business tech news", 2],
+      ["japantimes.co.jp", "latest Japan business tech news", 2],
+      ["广义搜索", "China Japan Korea tech company business news", 4],
+      ["广义搜索", "Tencent Alibaba ByteDance Meituan PDD SEA Grab latest news", 3],
+      ["广义搜索", "China AI DeepSeek MiniMax Kimi Baidu Zhipu model latest", 3]
+    ]
+  },
+  {
+    category: "宏观/地缘",
+    icon: "🌐",
+    rows: [
+      ["reuters.com", "latest geopolitics war trade tariff sanctions", 3],
+      ["ft.com", "latest central bank interest rate monetary policy", 3],
+      ["bloomberg.com", "latest Fed ECB BOJ central bank policy", 3],
+      ["foreignpolicy.com", "latest geopolitics conflict Middle East", 2],
+      ["广义搜索", "Iran Israel Middle East conflict war latest update", 3],
+      ["广义搜索", "US China trade tariff sanctions tech restriction", 3],
+      ["广义搜索", "Federal Reserve interest rate cut hike inflation CPI jobs", 3],
+      ["广义搜索", "oil price OPEC crude supply demand energy", 2]
+    ]
+  },
+  {
+    category: "云/SaaS",
+    icon: "☁",
+    rows: [
+      ["saastr.com", "latest SaaS news trends", 3],
+      ["cloudflare.com", "latest blog announcements", 2],
+      ["azure.microsoft.com", "latest blog announcements", 2],
+      ["广义搜索", "Cloudflare Datadog CrowdStrike ServiceNow Snowflake cloud SaaS earnings news", 4],
+      ["广义搜索", "AWS Azure Google Cloud infrastructure pricing data center", 3],
+      ["广义搜索", "SaaS AI disruption enterprise software automation agent", 3]
+    ]
+  },
+  {
+    category: "广告/媒体",
+    icon: "📺",
+    rows: [
+      ["adweek.com", "latest advertising news", 3],
+      ["searchengineland.com", "latest search marketing news", 3],
+      ["adexchanger.com", "latest ad tech news", 3],
+      ["digiday.com", "latest media advertising news", 3],
+      ["广义搜索", "Meta Google Amazon digital advertising revenue market share", 3],
+      ["广义搜索", "Trade Desk DSP programmatic advertising CTV streaming", 2]
+    ]
+  },
+  {
+    category: "游戏行业",
+    icon: "🎮",
+    rows: [
+      ["gamesindustry.biz", "latest gaming industry news", 4],
+      ["ign.com", "latest gaming news", 3],
+      ["polygon.com", "latest gaming news", 3],
+      ["sensortower.com", "latest mobile game charts", 2],
+      ["广义搜索", "Steam top selling games chart this week", 3],
+      ["广义搜索", "Nintendo Switch PlayStation Xbox console sales news", 2],
+      ["广义搜索", "Roblox Nexon Tencent gaming revenue earnings", 2]
+    ]
+  },
+  {
+    category: "加密/支付",
+    icon: "🪙",
+    rows: [
+      ["coindesk.com", "latest crypto news", 3],
+      ["theblock.co", "latest crypto blockchain news", 3],
+      ["广义搜索", "Circle USDC stablecoin payment crypto regulation IPO", 3],
+      ["广义搜索", "Bitcoin Ethereum institutional adoption ETF", 2],
+      ["广义搜索", "AI agent crypto payment blockchain web3", 2]
+    ]
+  }
+];
+
 const regionalMarkets = [
   { name: "🇺🇸 美国", quotes: [["S&P 500", "7,228", "-0.02"], ["Dow", "49,293", "-0.42"], ["Nasdaq", "25,130", "+0.06"]] },
   { name: "🇭🇰 中港", quotes: [["恒生", "26,096", "+1.24"], ["恒生科技", "4.87", "+2.05"], ["上证", "4,112", "+0.11"]] },
@@ -713,6 +856,39 @@ function dailyNewsItems() {
   return Array.isArray(state.dailyNewsItems) ? state.dailyNewsItems : [];
 }
 
+function catalogSourceId(category, row) {
+  return `${category}-${row[0]}-${row[1]}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function catalogSourceUrl(row) {
+  const [domain, query] = row;
+  const term = domain === "广义搜索" ? query : `site:${domain} ${query}`;
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(term)}&hl=en-US&gl=US&ceid=US:en`;
+}
+
+function sourceKey(source) {
+  return `${source.category || ""}|${source.domain || ""}|${source.query || ""}|${source.url || ""}`;
+}
+
+function catalogSourcePayload(category, row) {
+  const [domain, query, limit] = row;
+  const isBroad = domain === "广义搜索";
+  return {
+    id: `catalog-${catalogSourceId(category, row)}`,
+    name: isBroad ? query : domain,
+    category,
+    domain,
+    query,
+    limit,
+    url: catalogSourceUrl(row),
+    createdAt: new Date().toISOString()
+  };
+}
+
+function enabledCatalogSourceKeys() {
+  return new Set(dailyNewsSources().map(sourceKey));
+}
+
 function childCustomFolders(parentId = "") {
   return customFolders()
     .filter((folder) => (folder.parentId || "") === (parentId || ""))
@@ -1086,15 +1262,53 @@ function renderDailyNewsBoard() {
   }).replaceAll("/", "/");
   const updatedAt = new Date(state.lastFetchedAt || Date.now()).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
   const hotTags = dailyHotTags(rows);
+  const enabledSourceKeys = enabledCatalogSourceKeys();
   const sourceCards = sources.map((source) => `
     <article class="daily-source-card">
       <div>
         <strong>${escapeHtml(source.name || "未命名新闻源")}</strong>
-        <span>${escapeHtml(source.url || "")}</span>
+        <span>${escapeHtml([source.category, source.domain, source.query || source.url].filter(Boolean).join(" · "))}</span>
       </div>
       <button data-delete-news-source="${escapeHtml(source.id)}" type="button">删除</button>
     </article>
   `).join("");
+  const catalogCards = dailyNewsSourceCatalog.map((group) => {
+    const rowsHtml = group.rows.map((row) => {
+      const payload = catalogSourcePayload(group.category, row);
+      const added = enabledSourceKeys.has(sourceKey(payload));
+      return `
+        <tr>
+          <td><strong>${escapeHtml(row[0])}</strong></td>
+          <td>${escapeHtml(row[1])}</td>
+          <td>${escapeHtml(row[2])}</td>
+          <td>
+            <button data-add-catalog-source="${escapeHtml(group.category)}|${escapeHtml(catalogSourceId(group.category, row))}" type="button" ${added ? "disabled" : ""}>
+              ${added ? "已启用" : "添加"}
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+    const activeCount = group.rows.filter((row) => enabledSourceKeys.has(sourceKey(catalogSourcePayload(group.category, row)))).length;
+    return `
+      <article class="daily-source-category">
+        <header>
+          <div>
+            <span>${escapeHtml(group.icon)}</span>
+            <strong>${escapeHtml(group.category)}</strong>
+            <em>${group.rows.length} 个源</em>
+          </div>
+          <button data-add-catalog-category="${escapeHtml(group.category)}" type="button">${activeCount === group.rows.length ? "全部已启用" : `启用本类 ${activeCount}/${group.rows.length}`}</button>
+        </header>
+        <div class="daily-source-table-wrap">
+          <table>
+            <thead><tr><th>域名 / 关键词</th><th>查询</th><th>条数</th><th></th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      </article>
+    `;
+  }).join("");
   const topNews = rows.slice(0, 5).map((item, index) => {
     const company = itemCompany(item);
     const ticker = company?.ticker || item.source || (index === 1 ? "-" : "NEWS");
@@ -1149,6 +1363,15 @@ function renderDailyNewsBoard() {
           <input id="dailyNewsSourceName" placeholder="来源名称，例如 The Verge / Bloomberg AI" />
           <input id="dailyNewsSourceUrl" placeholder="https://example.com/news 或 RSS / 网页链接" />
           <button data-add-news-source type="button">添加新闻源</button>
+        </div>
+        <div class="daily-source-summary">
+          <strong>预设新闻源库</strong>
+          <span>按你的投研分类维护。点击“添加”后，会进入下方已启用列表，并参与“生成今日新闻”。</span>
+        </div>
+        <div class="daily-source-catalog">${catalogCards}</div>
+        <div class="daily-source-summary">
+          <strong>已启用新闻源</strong>
+          <span>${sources.length} 个来源会参与扫描。</span>
         </div>
         <div class="daily-source-list">
           ${sourceCards || `<div class="empty-list">还没有新闻源。把你每天要看的网页、新闻列表或 RSS 链接加进来。</div>`}
@@ -2913,15 +3136,46 @@ function addDailyNewsSource() {
   const source = {
     id: `news-source-${Date.now().toString(36)}`,
     name: nameInput?.value.trim() || host,
+    category: "自定义",
+    domain: host,
+    query: rawUrl,
+    limit: 1,
     url,
     createdAt: new Date().toISOString()
   };
-  const exists = dailyNewsSources().some((row) => row.url === source.url);
+  const exists = dailyNewsSources().some((row) => sourceKey(row) === sourceKey(source));
   if (exists) {
     alert("这个新闻源已经添加过了。");
     return;
   }
   state.dailyNewsSources = [...dailyNewsSources(), source];
+  state.dailyNewsTab = "sources";
+  saveState();
+  render();
+}
+
+function addCatalogSource(category, catalogId) {
+  const group = dailyNewsSourceCatalog.find((row) => row.category === category);
+  const row = group?.rows.find((entry) => catalogSourceId(category, entry) === catalogId);
+  if (!row) return;
+  const source = catalogSourcePayload(category, row);
+  const exists = dailyNewsSources().some((entry) => sourceKey(entry) === sourceKey(source));
+  if (exists) return;
+  state.dailyNewsSources = [...dailyNewsSources(), source];
+  state.dailyNewsTab = "sources";
+  saveState();
+  render();
+}
+
+function addCatalogCategory(category) {
+  const group = dailyNewsSourceCatalog.find((row) => row.category === category);
+  if (!group) return;
+  const known = enabledCatalogSourceKeys();
+  const fresh = group.rows
+    .map((row) => catalogSourcePayload(category, row))
+    .filter((source) => !known.has(sourceKey(source)));
+  if (!fresh.length) return;
+  state.dailyNewsSources = [...dailyNewsSources(), ...fresh];
   state.dailyNewsTab = "sources";
   saveState();
   render();
@@ -3306,6 +3560,17 @@ document.addEventListener("click", (event) => {
   const addNewsSource = event.target.closest("[data-add-news-source]");
   if (addNewsSource) {
     addDailyNewsSource();
+    return;
+  }
+  const addCatalog = event.target.closest("[data-add-catalog-source]");
+  if (addCatalog) {
+    const [category, catalogId] = String(addCatalog.dataset.addCatalogSource || "").split("|");
+    addCatalogSource(category, catalogId);
+    return;
+  }
+  const addCatalogGroup = event.target.closest("[data-add-catalog-category]");
+  if (addCatalogGroup) {
+    addCatalogCategory(addCatalogGroup.dataset.addCatalogCategory);
     return;
   }
   const deleteNewsSource = event.target.closest("[data-delete-news-source]");
