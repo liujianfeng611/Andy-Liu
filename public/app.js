@@ -154,6 +154,7 @@ const els = {
   refreshBtn: document.querySelector("#refreshBtn"),
   fileInput: document.querySelector("#fileInput"),
   globalUploadBtn: document.querySelector("#globalUploadBtn"),
+  globalSaveWebBtn: document.querySelector("#globalSaveWebBtn"),
   noteInput: document.querySelector("#noteInput"),
   saveNoteBtn: document.querySelector("#saveNoteBtn"),
   newMaterialBtn: document.querySelector("#newMaterialBtn"),
@@ -1835,6 +1836,7 @@ function renderCompanyWorkspace() {
         <button data-company-tab="deep" type="button">AI伙伴</button>
         <button data-company-tab="model" type="button">上传模型</button>
         <button data-upload-current-company type="button">上传文件</button>
+        <button data-save-web-current-company type="button">保存网页</button>
         <button data-open-folder-for-company="${escapeHtml(company.id)}" type="button">普通文件夹</button>
       </div>
     </header>
@@ -2628,6 +2630,44 @@ async function saveWebUrlToCustomFolder(folderId) {
   }
 }
 
+async function saveWebUrlToCompany(companyId = activeCompany().id) {
+  const company = state.companies.find((row) => row.id === companyId) || activeCompany();
+  const url = prompt(`保存网页 / PDF / 文件链接到 ${company.ticker || company.name} 云端文件夹`);
+  if (!url?.trim()) return;
+  const now = new Date().toISOString();
+  try {
+    const data = await api("fetch-url", {
+      method: "POST",
+      body: JSON.stringify({ url: url.trim() })
+    });
+    const title = data.title || url.trim();
+    const text = cleanTranscriptText(data.text || "");
+    const item = {
+      id: `${company.id}-web-${Date.now().toString(36)}`,
+      companyId: company.id,
+      type: "local",
+      folderId: "cloud",
+      tags: ["网页保存", company.ticker || company.name, text ? "可读正文" : "链接"],
+      title,
+      source: data.source || company.ticker || "WEB",
+      url: url.trim(),
+      sourceText: text || `已保存网页链接：${url.trim()}`,
+      viewText: "",
+      createdAt: now,
+      publishedAt: now,
+      summary: (text || data.description || url.trim()).replace(/\s+/g, " ").trim().slice(0, 280)
+    };
+    addItems([item]);
+    state.activeCompanyId = company.id;
+    state.railView = "folders";
+    state.folderPath = [inferIndustry(company)];
+    saveState();
+    render();
+  } catch (error) {
+    alert(`保存网页失败：${error.message || "链接无法读取"}`);
+  }
+}
+
 async function uploadFilesToCustomFolder(files, folderId) {
   const folder = customFolders().find((row) => row.id === folderId);
   if (!folder) return;
@@ -2893,6 +2933,11 @@ document.addEventListener("click", (event) => {
     els.companyUploadInput.click();
     return;
   }
+  const saveWebCurrentCompany = event.target.closest("[data-save-web-current-company]");
+  if (saveWebCurrentCompany) {
+    saveWebUrlToCompany(activeCompany().id);
+    return;
+  }
   const attachTranscript = event.target.closest("[data-attach-transcript-file]");
   if (attachTranscript) {
     els.transcriptFileInput.click();
@@ -2943,6 +2988,18 @@ els.globalUploadBtn.addEventListener("click", () => {
     return;
   }
   els.companyUploadInput.click();
+});
+els.globalSaveWebBtn.addEventListener("click", () => {
+  const selected = Array.isArray(state.folderPath) ? state.folderPath[0] || "" : "";
+  const customId = selected.startsWith("custom:") ? selected.slice(7) : "";
+  if (state.railView === "folders" && customId) {
+    const input = document.querySelector(`[data-save-web-url-input="${customId}"]`);
+    if (input) {
+      input.focus();
+      return;
+    }
+  }
+  saveWebUrlToCompany(activeCompany().id);
 });
 document.querySelectorAll("[data-rail-view]").forEach((button) => {
   button.addEventListener("click", () => {

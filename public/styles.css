@@ -625,7 +625,8 @@ body.note-reader-mode .main-stage {
 }
 
 .company-actions button:nth-child(2),
-.company-actions button:nth-child(4) {
+.company-actions button:nth-child(4),
+.company-actions [data-save-web-current-company] {
   border-color: #145f83;
   color: #8dddff;
 }
@@ -2565,6 +2566,11 @@ textarea {
   background: #0f4d68;
   border-color: #1f84a8;
   color: #b9f0ff;
+}
+
+#globalSaveWebBtn {
+  border-color: #5d4b18;
+  color: #f2ce68;
 }
 
 .full {
