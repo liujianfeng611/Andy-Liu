@@ -126,6 +126,7 @@ let backendStatus = "local";
 const autoRefreshingCompanies = new Set();
 let noteProcessorBusy = false;
 let noteProcessorStatus = "";
+let ideaSaveTimer = null;
 
 const els = {
   noteStream: document.querySelector("#noteStream"),
@@ -487,6 +488,10 @@ function originalNoteText(item) {
 
 function materialTranslation(item) {
   return cleanTranscriptText(item?.translationText || item?.translatedText || "");
+}
+
+function materialIdea(item) {
+  return cleanTranscriptText(item?.ideaText || item?.idea || "");
 }
 
 function materialTranscript(item) {
@@ -1333,6 +1338,10 @@ function renderNoteReaderBody(item, activeTab) {
     return renderNoteAnalyst(item);
   }
 
+  if (activeTab === "idea") {
+    return renderNoteIdea(item);
+  }
+
   if (activeTab === "handler") {
     return renderNoteProcessor(item);
   }
@@ -1343,6 +1352,39 @@ function renderNoteReaderBody(item, activeTab) {
       <strong>${escapeHtml(tabLabel)}</strong>
       <p>这个视图会基于当前笔记生成结构化分析。现在先把原文放在 Transcript，便于你先阅读和归档。</p>
       <button data-note-reader-tab="transcript" type="button">查看 Transcript</button>
+    </section>
+  `;
+}
+
+function renderNoteIdea(item) {
+  const idea = materialIdea(item);
+  const updated = item?.ideaUpdatedAt ? `已保存 ${formatTime(item.ideaUpdatedAt)}` : "未保存";
+  const placeholder = [
+    "在这里写下你对这个笔记 / 这家公司 / 这个事件的真实想法。",
+    "",
+    "比如：",
+    "- 读完之后对公司的判断",
+    "- 对增速 / 利润率 / 估值的调整",
+    "- 对管理层的评价",
+    "- 风险点",
+    "- 短 / 中 / 长期观点",
+    "- 仓位上要不要动",
+    "",
+    "你的想法会被 workstation 的 AI agents 读取，在回答相关问题时会参考你的观点。"
+  ].join("\n");
+
+  return `
+    <section class="idea-editor-shell">
+      <header class="idea-editor-head">
+        <div class="idea-title-pill">我的想法</div>
+        <p>AI agents 可读取，用于回答相关问题时参考你的观点</p>
+        <div class="idea-actions">
+          <span data-idea-save-state>${escapeHtml(updated)}</span>
+          <button data-save-note-idea type="button">保存</button>
+        </div>
+      </header>
+      <textarea data-note-idea-input spellcheck="false" placeholder="${escapeHtml(placeholder)}">${escapeHtml(idea)}</textarea>
+      <small class="idea-editor-hint">提示：输入 1.2 秒后自动保存；也可以按“保存”手动保存。</small>
     </section>
   `;
 }
@@ -2427,6 +2469,20 @@ async function processCurrentNote(task = "analyze") {
   }
 }
 
+function saveCurrentNoteIdea({ renderAfter = false } = {}) {
+  const item = selectedNoteItem();
+  const input = document.querySelector("[data-note-idea-input]");
+  if (!item || !input) return;
+  item.ideaText = input.value;
+  item.ideaUpdatedAt = new Date().toISOString();
+  item.tags = [...new Set([...materialTags(item), "有想法"])].slice(0, 12);
+  saveState();
+  persistItems([item]);
+  const stateLabel = document.querySelector("[data-idea-save-state]");
+  if (stateLabel) stateLabel.textContent = "已保存";
+  if (renderAfter) render();
+}
+
 els.refreshBtn.addEventListener("click", refreshOpenInfo);
 document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-open-url]");
@@ -2440,6 +2496,7 @@ document.addEventListener("click", (event) => {
 document.addEventListener("click", (event) => {
   const noteReaderTab = event.target.closest("[data-note-reader-tab]");
   if (noteReaderTab) {
+    if (document.querySelector("[data-note-idea-input]")) saveCurrentNoteIdea();
     state.noteReaderTab = noteReaderTab.dataset.noteReaderTab;
     state.readerMode = "note";
     saveState();
@@ -2524,6 +2581,11 @@ document.addEventListener("click", (event) => {
     processCurrentNote("analyze");
     return;
   }
+  const saveIdea = event.target.closest("[data-save-note-idea]");
+  if (saveIdea) {
+    saveCurrentNoteIdea({ renderAfter: true });
+    return;
+  }
   const openCompanyFolder = event.target.closest("[data-open-folder-for-company]");
   if (openCompanyFolder) {
     state.railView = "folders";
@@ -2531,6 +2593,14 @@ document.addEventListener("click", (event) => {
     saveState();
     render();
   }
+});
+document.addEventListener("input", (event) => {
+  const ideaInput = event.target.closest("[data-note-idea-input]");
+  if (!ideaInput) return;
+  const stateLabel = document.querySelector("[data-idea-save-state]");
+  if (stateLabel) stateLabel.textContent = "正在输入...";
+  window.clearTimeout(ideaSaveTimer);
+  ideaSaveTimer = window.setTimeout(() => saveCurrentNoteIdea(), 1200);
 });
 document.querySelectorAll("[data-rail-view]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -2544,6 +2614,7 @@ document.querySelectorAll("[data-rail-view]").forEach((button) => {
 els.noteStream.addEventListener("click", (event) => {
   const button = event.target.closest("[data-item-id]");
   if (!button) return;
+  if (document.querySelector("[data-note-idea-input]")) saveCurrentNoteIdea();
   const item = state.items.find((row) => row.id === button.dataset.itemId);
   if (item?.companyId) {
     state.activeCompanyId = item.companyId;
