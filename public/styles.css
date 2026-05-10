@@ -2421,6 +2421,16 @@ body.note-reader-mode .main-stage {
 }
 
 body.light-theme {
+  --bg: #f7f7f6;
+  --panel: #ffffff;
+  --panel-2: #f3f1ef;
+  --panel-3: #ebe7e2;
+  --line: #ddd7d1;
+  --line-soft: #e9e4de;
+  --text: #2d2925;
+  --muted: #7c746c;
+  --muted-2: #9a9188;
+  --chip: #e8e3dd;
   background: #f7f7f6;
   color: #2d2925;
 }
@@ -2515,6 +2525,10 @@ body.light-theme .note-item.uploaded-note.active {
   background: #f1eeeb;
 }
 
+body.light-theme .user-card {
+  background: #fbfbfa;
+}
+
 body.light-theme .tag {
   background: #e6e1dc;
   color: #777069;
@@ -2526,6 +2540,283 @@ body.light-theme select {
   border-color: #d9d3cd;
   background: #fff;
   color: #24211f;
+}
+
+body.light-theme .main-stage,
+body.light-theme.note-reader-mode .main-stage {
+  background: #f7f7f6;
+  color: #2d2925;
+}
+
+body.light-theme .note-reader {
+  color: #2d2925;
+}
+
+body.light-theme .note-reader-head,
+body.light-theme .note-reader-tabs {
+  border-bottom-color: #ddd7d1;
+}
+
+body.light-theme .note-reader-title h1,
+body.light-theme .note-reader-tabs button.active,
+body.light-theme .note-reader-placeholder strong,
+body.light-theme .note-reader-empty h1,
+body.light-theme .processor-head strong,
+body.light-theme .processor-section-title strong,
+body.light-theme .processed-note h3 {
+  color: #24211f;
+}
+
+body.light-theme .note-reader-tabs button {
+  color: #7c746c;
+}
+
+body.light-theme .note-reader-tabs button.active {
+  box-shadow: inset 0 -3px 0 #24211f;
+}
+
+body.light-theme .note-reader-status span,
+body.light-theme .note-reader-status button {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #514b45;
+}
+
+body.light-theme .note-reader-status span:first-child {
+  border-color: #bce8d3;
+  background: #eef9f3;
+  color: #11794f;
+}
+
+body.light-theme .note-reader-status button {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d64d8;
+}
+
+body.light-theme .note-reader-progress {
+  border-color: #b6e5cf;
+  background: #eaf7f0;
+  color: #164d38;
+}
+
+body.light-theme .note-reader-progress strong {
+  color: #164d38;
+}
+
+body.light-theme .note-reader-progress p {
+  color: #587165;
+}
+
+body.light-theme .note-reader-progress > button {
+  border-color: #b6e5cf;
+  background: #ffffff;
+  color: #164d38;
+}
+
+body.light-theme .note-reader-steps span {
+  border-color: #b6e5cf;
+  background: #e2f6ed;
+  color: #11825a;
+}
+
+body.light-theme .note-reader-steps .warn {
+  border-color: #efc65a;
+  background: #fff6d8;
+  color: #8a6300;
+}
+
+body.light-theme .note-reader-steps .muted {
+  border-color: #ded7d0;
+  background: #eee9e4;
+  color: #756b63;
+}
+
+body.light-theme .note-reader-transcript,
+body.light-theme .note-reader-placeholder,
+body.light-theme .note-reader-empty,
+body.light-theme .processor-head,
+body.light-theme .processor-controls,
+body.light-theme .processor-layout article,
+body.light-theme .processed-note section,
+body.light-theme .translation-note {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #2d2925;
+}
+
+body.light-theme .note-reader-transcript,
+body.light-theme .note-reader-transcript p,
+body.light-theme .processor-layout pre,
+body.light-theme .processed-note li,
+body.light-theme .translation-note p {
+  color: #342f2b;
+}
+
+body.light-theme .note-reader-placeholder p,
+body.light-theme .note-reader-empty p,
+body.light-theme .processor-head p,
+body.light-theme .processor-controls label,
+body.light-theme .processed-placeholder {
+  color: #736a62;
+}
+
+body.light-theme .note-reader-placeholder button,
+body.light-theme .processor-controls button {
+  border-color: #7dd3fc;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+body.light-theme .processor-head > span,
+body.light-theme .processor-section-title span {
+  color: #0369a1;
+}
+
+body.light-theme .processor-status {
+  border-color: #bfdbfe;
+  background: #edf6ff;
+  color: #0369a1;
+}
+
+body.light-theme .processed-placeholder {
+  border-color: #d6d0ca;
+}
+
+body.light-theme .processed-note .conclusion-section {
+  border-color: #60a5fa;
+  background: #eef7ff;
+}
+
+body.light-theme .processed-note .facts-section {
+  border-color: #34d399;
+  background: #effaf4;
+}
+
+body.light-theme .processed-note .opinion-section {
+  border-color: #fbbf24;
+  background: #fff8e7;
+}
+
+body.light-theme .port-impact-panel .processed-note section {
+  background: #ffffff;
+}
+
+body.light-theme .company-hero h1,
+body.light-theme .company-metrics strong,
+body.light-theme .price-line strong,
+body.light-theme .narrative-head h2,
+body.light-theme .thesis-hero h2,
+body.light-theme .folder-board-top h2,
+body.light-theme .folder-card-head,
+body.light-theme .daily-news-top h2,
+body.light-theme .daily-news-generate strong,
+body.light-theme .daily-news-card h3 {
+  color: #24211f;
+}
+
+body.light-theme .company-tags span,
+body.light-theme .company-tags strong,
+body.light-theme .company-actions button,
+body.light-theme .workspace-tabs button.active,
+body.light-theme .view-actions button,
+body.light-theme .view-stream button,
+body.light-theme .peer-grid button,
+body.light-theme .recent-note-list button,
+body.light-theme .narrative-filters span,
+body.light-theme .discipline-strip span,
+body.light-theme .note-accordion button,
+body.light-theme .material-flow button,
+body.light-theme .action-list button,
+body.light-theme .question-list label,
+body.light-theme .model-match,
+body.light-theme .model-match span,
+body.light-theme .thesis-grid article,
+body.light-theme .evidence-map article,
+body.light-theme .deep-grid article,
+body.light-theme .continuous-grid article,
+body.light-theme .folder-board-actions button,
+body.light-theme .folder-chip,
+body.light-theme .folder-card-head,
+body.light-theme .daily-news-tabs button,
+body.light-theme .daily-news-generate button,
+body.light-theme .daily-news-card-actions button {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #342f2b;
+}
+
+body.light-theme .stock-panel,
+body.light-theme .viewpoint-panel,
+body.light-theme .company-source-card,
+body.light-theme .workspace-panel,
+body.light-theme .folder-card-large,
+body.light-theme .daily-news-panel,
+body.light-theme .daily-news-generate,
+body.light-theme .daily-news-card {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #2d2925;
+}
+
+body.light-theme .workspace-tabs button.active {
+  background: #ebe7e2;
+}
+
+body.light-theme .company-tags span,
+body.light-theme .company-actions button:nth-child(2),
+body.light-theme .company-actions button:nth-child(4),
+body.light-theme .company-actions [data-save-web-current-company],
+body.light-theme .workspace-tabs button:last-child,
+body.light-theme .narrative-head button,
+body.light-theme .model-version-card button,
+body.light-theme .committee-panel button,
+body.light-theme .folder-url-save button,
+body.light-theme .daily-news-tabs button.active,
+body.light-theme .daily-news-generate button,
+body.light-theme .daily-news-card-actions button {
+  border-color: #7dd3fc;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+body.light-theme .turning-strip {
+  border-color: #f4c86b;
+  background: #fff8e2;
+  color: #8a6300;
+}
+
+body.light-theme .timeline-month.active {
+  border-color: #9ed9b8;
+  background: #edf8f2;
+}
+
+body.light-theme .idea-title-pill {
+  border-color: #f0c764;
+  background: #fff7db;
+  color: #9a6a00;
+}
+
+body.light-theme .idea-actions button {
+  border-color: #f0c764;
+  background: #fff7db;
+  color: #8a6300;
+}
+
+body.light-theme .idea-editor-shell textarea {
+  border-color: #e8c15d;
+  background: #ffffff;
+  color: #2d2925;
+}
+
+body.light-theme .idea-editor-shell textarea::placeholder {
+  color: rgba(75, 68, 61, 0.45);
+}
+
+body.light-theme .folder-url-save input {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #2d2925;
 }
 
 body.daily-mode {
