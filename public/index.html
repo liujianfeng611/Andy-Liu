@@ -24,16 +24,6 @@
           <button data-rail-view="folders" type="button">文件夹</button>
         </nav>
 
-        <form id="railCompanyJump" class="rail-company-jump" autocomplete="off" hidden>
-          <label for="railCompanyJumpInput">公司直达</label>
-          <div>
-            <input id="railCompanyJumpInput" type="search" list="railCompanyJumpList" placeholder="输入公司名 / Ticker，回车直达" />
-            <button type="submit">↵</button>
-          </div>
-          <small id="railCompanyJumpHint"></small>
-          <datalist id="railCompanyJumpList"></datalist>
-        </form>
-
         <input id="searchInput" type="search" autocomplete="off" hidden />
         <span id="queueTotal" hidden>0</span>
         <div id="intakeQueue" hidden></div>
@@ -63,6 +53,20 @@
           <button>日本Agent</button>
           <button>军工金融Agent</button>
         </nav>
+
+        <form id="railCompanyJump" class="rail-company-jump" autocomplete="off" hidden>
+          <label for="railCompanyJumpInput">
+            <span>▤</span>
+            公司直达
+          </label>
+          <div class="rail-company-search">
+            <span>⌕</span>
+            <input id="railCompanyJumpInput" type="search" list="railCompanyJumpList" placeholder="输入公司名或 ticker，回车直达公司主页..." />
+          </div>
+          <small id="railCompanyJumpHint">最近</small>
+          <div id="railCompanyJumpRecents" class="rail-company-recents"></div>
+          <datalist id="railCompanyJumpList"></datalist>
+        </form>
 
         <section id="folderBoard" class="folder-board" hidden></section>
         <section id="dailyNewsBoard" class="daily-news-board" hidden></section>

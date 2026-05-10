@@ -284,6 +284,7 @@ const els = {
   railCompanyJumpInput: document.querySelector("#railCompanyJumpInput"),
   railCompanyJumpHint: document.querySelector("#railCompanyJumpHint"),
   railCompanyJumpList: document.querySelector("#railCompanyJumpList"),
+  railCompanyJumpRecents: document.querySelector("#railCompanyJumpRecents"),
   queueTotal: document.querySelector("#queueTotal"),
   intakeQueue: document.querySelector("#intakeQueue"),
   searchInput: document.querySelector("#searchInput"),
@@ -2685,6 +2686,20 @@ function renderRailCompanyJump() {
   els.railCompanyJump.hidden = !visible;
   if (!visible) return;
 
+  const active = activeCompany();
+  const recentIds = new Set();
+  const recentCompanies = [
+    active,
+    ...activeItems()
+      .map((item) => state.companies.find((company) => company.id === item.companyId))
+      .filter(Boolean),
+    ...state.companies
+  ].filter((company) => {
+    if (!company || recentIds.has(company.id)) return false;
+    recentIds.add(company.id);
+    return true;
+  }).slice(0, 5);
+
   els.railCompanyJumpList.innerHTML = state.companies
     .slice()
     .sort((a, b) => String(a.ticker || a.name).localeCompare(String(b.ticker || b.name)))
@@ -2693,6 +2708,13 @@ function renderRailCompanyJump() {
       return `<option value="${escapeHtml(company.ticker || company.name)}">${escapeHtml(label)}</option>`;
     })
     .join("");
+  els.railCompanyJumpRecents.innerHTML = recentCompanies.map((company) => `
+    <button class="${company.id === state.activeCompanyId ? "active" : ""}" data-company="${escapeHtml(company.id)}" type="button">
+      <strong>${escapeHtml(company.name || company.ticker)}</strong>
+      ${company.ticker ? `<em>${escapeHtml(company.ticker)}</em>` : ""}
+      <span>→</span>
+    </button>
+  `).join("");
 }
 
 function renderTheme() {

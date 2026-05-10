@@ -180,8 +180,15 @@ body.daily-mode .terminal-shell {
 
 .rail-company-jump {
   display: grid;
-  gap: 7px;
-  margin: 12px 18px 14px;
+  grid-template-columns: auto minmax(260px, 0.72fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  border: 1px solid rgba(65, 132, 232, 0.4);
+  border-radius: 14px;
+  background: #0a0908;
+  box-shadow: 0 0 0 2px rgba(30, 99, 183, 0.14);
+  padding: 12px 14px;
 }
 
 .rail-company-jump[hidden] {
@@ -189,46 +196,116 @@ body.daily-mode .terminal-shell {
 }
 
 .rail-company-jump label {
-  color: var(--muted);
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid rgba(76, 141, 242, 0.45);
+  border-radius: 10px;
+  background: #111824;
+  color: #dceaff;
+  padding: 0 16px;
+  font-size: 14px;
   font-weight: 900;
+  white-space: nowrap;
 }
 
-.rail-company-jump div {
+.rail-company-jump label span {
+  color: #8dddff;
+  font-size: 18px;
+}
+
+.rail-company-search {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px;
-  gap: 8px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid #1e5fa8;
+  border-radius: 14px;
+  background: #050505;
+  box-shadow: 0 0 0 3px rgba(36, 110, 220, 0.18);
+  padding: 0 16px;
+}
+
+.rail-company-search > span {
+  color: #69a9ee;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .rail-company-jump input {
-  height: 38px;
+  height: 44px;
   min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #090908;
+  border: 0;
+  background: transparent;
   color: var(--text);
-  padding: 0 12px;
-  font-size: 13px;
+  padding: 0;
+  font-size: 17px;
   font-weight: 800;
+  outline: none;
 }
 
 .rail-company-jump input::placeholder {
   color: var(--muted-2);
 }
 
-.rail-company-jump button {
-  border: 1px solid #145f83;
-  border-radius: 9px;
-  background: #0e3b52;
-  color: #8dddff;
-  font-weight: 950;
+.rail-company-jump small {
+  justify-self: end;
+  border-radius: 999px;
+  background: #050505;
+  color: #8c8780;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
-.rail-company-jump small {
-  min-height: 15px;
+.rail-company-recents {
+  display: flex;
+  min-width: 0;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.rail-company-recents button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+  min-height: 44px;
+  max-width: 210px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #11100e;
+  color: #eee8df;
+  padding: 0 14px;
+  font-weight: 900;
+}
+
+.rail-company-recents button.active {
+  border-color: #2f77d4;
+  background: #111824;
+}
+
+.rail-company-recents strong {
+  overflow: hidden;
+  max-width: 118px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-company-recents em {
+  border-radius: 7px;
+  background: var(--chip);
+  color: #cfc8c0;
+  padding: 3px 8px;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.rail-company-recents span {
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 18px;
 }
 
 .intake-panel {
@@ -2596,15 +2673,42 @@ body.light-theme select {
 }
 
 body.light-theme .rail-company-jump input {
-  border-color: #d9d3cd;
-  background: #ffffff;
   color: #24211f;
 }
 
-body.light-theme .rail-company-jump button {
-  border-color: #7dd3fc;
-  background: #e0f2fe;
-  color: #0369a1;
+body.light-theme .rail-company-jump {
+  border-color: #c7ddff;
+  background: #fbfbfa;
+  box-shadow: 0 0 0 2px rgba(80, 130, 210, 0.1);
+}
+
+body.light-theme .rail-company-jump label,
+body.light-theme .rail-company-recents button.active {
+  border-color: #8fb9f4;
+  background: #eef6ff;
+  color: #1e4f9a;
+}
+
+body.light-theme .rail-company-search {
+  border-color: #7fb2f0;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(80, 130, 210, 0.14);
+}
+
+body.light-theme .rail-company-jump small {
+  background: #f0eeeb;
+  color: #766f68;
+}
+
+body.light-theme .rail-company-recents button {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #2d2925;
+}
+
+body.light-theme .rail-company-recents em {
+  background: #e6e1dc;
+  color: #746c64;
 }
 
 body.light-theme .main-stage,
@@ -4131,6 +4235,19 @@ menu {
     grid-template-columns: 340px minmax(0, 1fr) 300px;
   }
 
+  .rail-company-jump {
+    grid-template-columns: auto minmax(220px, 1fr);
+  }
+
+  .rail-company-jump small,
+  .rail-company-recents {
+    grid-column: 1 / -1;
+  }
+
+  .rail-company-jump small {
+    justify-self: start;
+  }
+
 }
 
 @media (max-width: 900px) {
@@ -4151,6 +4268,10 @@ menu {
   .agent-tabs {
     margin: -16px -16px 16px;
     padding: 0 16px;
+  }
+
+  .rail-company-jump {
+    grid-template-columns: 1fr;
   }
 
   .market-grid {
