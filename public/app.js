@@ -1394,21 +1394,21 @@ function renderNoteProcessor(item) {
       <div class="processor-head">
         <div>
           <strong>处理者</strong>
-          <p>选择模型，把当前笔记原文逐段完整翻译成易读中文。</p>
+          <p>选择模型，把当前原始笔记整理成完整、易读、易分析的中文材料。</p>
         </div>
         <span>${escapeHtml(selected.label)}</span>
       </div>
 
-      ${renderProcessorControls({ buttonText: "翻译当前笔记", busyText: "翻译中...", dataAttr: "data-translate-note", source })}
+      ${renderProcessorControls({ buttonText: "整理当前笔记", busyText: "整理中...", dataAttr: "data-translate-note", source })}
       ${noteProcessorStatus ? `<div class="processor-status">${escapeHtml(noteProcessorStatus)}</div>` : ""}
 
       <div class="processor-layout">
         <article>
           <div class="processor-section-title">
-            <strong>完整翻译</strong>
-            <span>${translated ? "已生成" : source ? `${source.length.toLocaleString()} 字符待翻译` : "没有原文"}</span>
+            <strong>整理稿</strong>
+            <span>${translated ? "已生成" : source ? `${source.length.toLocaleString()} 字符待整理` : "没有原文"}</span>
           </div>
-          ${translated ? renderTranslationText(translated) : `<div class="processed-placeholder">点击“翻译当前笔记”后，这里会按原文逻辑显示逐段完整中文翻译。</div>`}
+          ${translated ? renderTranslationText(translated) : `<div class="processed-placeholder">点击“整理当前笔记”后，这里会显示完整、易读、按投研逻辑整理后的中文材料。</div>`}
         </article>
       </div>
     </section>
@@ -2379,7 +2379,7 @@ async function processCurrentNote(task = "analyze") {
   }
 
   noteProcessorBusy = true;
-  noteProcessorStatus = `正在使用 ${model.label} ${task === "translate" ? "翻译" : "分析"}当前笔记...`;
+  noteProcessorStatus = `正在使用 ${model.label} ${task === "translate" ? "整理" : "分析"}当前笔记...`;
   render();
 
   try {
@@ -2397,7 +2397,7 @@ async function processCurrentNote(task = "analyze") {
     const result = data.result || "";
     if (task === "translate") {
       item.translationText = result;
-      item.tags = [...new Set([...materialTags(item), "已翻译", model.label])].slice(0, 12);
+      item.tags = [...new Set([...materialTags(item), "已整理", model.label])].slice(0, 12);
     } else {
       item.viewText = result;
       item.summary = result.replace(/\s+/g, " ").trim().slice(0, 280);
@@ -2405,7 +2405,7 @@ async function processCurrentNote(task = "analyze") {
     }
     item.processor = { model: model.id, provider: model.provider, task, processedAt: new Date().toISOString() };
     item.publishedAt = new Date().toISOString();
-    noteProcessorStatus = `已完成：${model.label} 已生成${task === "translate" ? "完整翻译" : "分析结果"}。`;
+    noteProcessorStatus = `已完成：${model.label} 已生成${task === "translate" ? "整理稿" : "分析结果"}。`;
     saveState();
     persistItems([item]);
   } catch (error) {
