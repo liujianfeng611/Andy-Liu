@@ -357,11 +357,20 @@ function sample(companyId, type, title, summary, source, publishedAt) {
 function loadState() {
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey));
-    if (stored?.companies?.length) return { ...structuredClone(defaultState), ...stored };
+    if (stored?.companies?.length) return normalizeState({ ...structuredClone(defaultState), ...stored });
   } catch {
-    return structuredClone(defaultState);
+    return normalizeState(structuredClone(defaultState));
   }
-  return structuredClone(defaultState);
+  return normalizeState(structuredClone(defaultState));
+}
+
+function normalizeState(nextState) {
+  const known = new Set((nextState.dailyNewsSources || []).map(sourceKey));
+  const defaults = dailyNewsSourceCatalog
+    .flatMap((group) => group.rows.map((row) => catalogSourcePayload(group.category, row)))
+    .filter((source) => !known.has(sourceKey(source)));
+  nextState.dailyNewsSources = [...(nextState.dailyNewsSources || []), ...defaults];
+  return nextState;
 }
 
 function saveState() {
@@ -1371,7 +1380,7 @@ function renderDailyNewsBoard() {
         <div class="daily-source-catalog">${catalogCards}</div>
         <div class="daily-source-summary">
           <strong>已启用新闻源</strong>
-          <span>${sources.length} 个来源会参与扫描。</span>
+          <span>${sources.length} 个来源会参与扫描。预设新闻源默认全部启用。</span>
         </div>
         <div class="daily-source-list">
           ${sourceCards || `<div class="empty-list">还没有新闻源。把你每天要看的网页、新闻列表或 RSS 链接加进来。</div>`}
