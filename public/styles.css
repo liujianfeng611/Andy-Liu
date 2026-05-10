@@ -1755,6 +1755,18 @@ body.note-reader-mode .main-stage {
   background: #211a0d;
 }
 
+.port-impact-panel .processed-note section {
+  background: #10100e;
+}
+
+.port-impact-panel .processed-note h3 {
+  color: #f0ebe5;
+}
+
+.port-impact-panel .processed-note li {
+  line-height: 1.62;
+}
+
 .translation-note {
   display: grid;
   gap: 12px;

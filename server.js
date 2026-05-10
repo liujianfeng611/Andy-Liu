@@ -282,7 +282,49 @@ async function generatePmAnswer(question, company, items) {
   return cleanText(data.candidates?.[0]?.content?.parts?.map((part) => part.text).join("\n")) || "AI 暂无返回。";
 }
 
-function noteProcessPrompt(title, source, task = "analyze") {
+function portfolioImpactPrompt(title, source, companies) {
+  const universe = (Array.isArray(companies) ? companies : [])
+    .slice(0, 80)
+    .map((company, index) => [
+      `${index + 1}. ${company.name || company.ticker || "Unknown"} (${company.ticker || "N/A"})`,
+      `类型：${company.portfolioStatus ? "Portfolio" : ""}${company.coverageStatus ? " Coverage" : ""}`.trim(),
+      `行业：${company.industry || ""}`,
+      `主题：${Array.isArray(company.topics) ? company.topics.join(" / ") : company.topics || ""}`,
+      `仓位：${company.positionWeight || company.positionShares || ""}`,
+      `备注：${company.universeNote || company.notes || ""}`
+    ].filter(Boolean).join("；"))
+    .join("\n");
+
+  return [
+    "你是基金经理的组合影响分析师。请只基于笔记整理稿，分析它对 Portfolio / Coverage 公司可能产生的正面或负面影响。",
+    "硬性要求：",
+    "- 逐个公司分析，优先覆盖 Portfolio 公司；如果 Coverage 公司明显相关也要写。",
+    "- 必须按四个维度判断：上下游维度、替代（substitute）维度、竞争维度、可寻址市场（TAM）维度。",
+    "- 每家公司必须明确方向：正面 / 负面 / 中性 / 不确定，并说明原因。",
+    "- 不要编造笔记没有的信息；如果影响链条需要验证，标注为“待验证”。",
+    "- 输出必须使用 Markdown，适合直接放在 Port 栏阅读。",
+    "输出格式：",
+    "## 组合影响总览",
+    "- ...",
+    "## 按公司影响",
+    "### TICKER / 公司名",
+    "- 总体影响：正面/负面/中性/不确定",
+    "- 上下游：...",
+    "- 替代：...",
+    "- 竞争：...",
+    "- TAM：...",
+    "- 需要验证：...",
+    "## 优先跟踪事项",
+    "- ...",
+    `标题：${title || "未命名笔记"}`,
+    "Portfolio / Coverage 公司清单：",
+    universe || "未导入 Portfolio / Coverage 公司。",
+    "笔记整理稿：",
+    source
+  ].join("\n");
+}
+
+function noteProcessPrompt(title, source, task = "analyze", options = {}) {
   if (task === "translate") {
     return [
       "你是专业投研笔记整理员。你的任务不是只做字面翻译，而是把原始笔记完整整理成更易读、易分析的中文材料。",
@@ -298,6 +340,10 @@ function noteProcessPrompt(title, source, task = "analyze") {
       "原始笔记：",
       source
     ].join("\n");
+  }
+
+  if (task === "portfolio") {
+    return portfolioImpactPrompt(title, source, options.companies);
   }
 
   return [
@@ -345,7 +391,7 @@ async function processNoteLocal(payload) {
   const keyName = envKeyForProvider(provider);
   const apiKey = cleanText(payload.apiKey) || process.env[keyName];
   if (!apiKey) throw new Error(`Missing API key. Set ${keyName}, or paste it in the processor panel.`);
-  const prompt = noteProcessPrompt(cleanText(payload.title), source.slice(0, 120000), task);
+  const prompt = noteProcessPrompt(cleanText(payload.title), source.slice(0, 120000), task, { companies: payload.companies || [] });
   const result = provider === "google"
     ? await callGoogleModel(apiKey, model, prompt)
     : provider === "openai"

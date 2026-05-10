@@ -503,6 +503,10 @@ function materialView(item) {
   return cleanTranscriptText(item?.viewText || "");
 }
 
+function materialPortfolioImpact(item) {
+  return cleanTranscriptText(item?.portfolioImpactText || "");
+}
+
 function originalNoteText(item) {
   const text = [
     item?.sourceText,
@@ -1368,6 +1372,10 @@ function renderNoteReaderBody(item, activeTab) {
     return renderNoteIdea(item);
   }
 
+  if (activeTab === "port") {
+    return renderNotePort(item);
+  }
+
   if (activeTab === "handler") {
     return renderNoteProcessor(item);
   }
@@ -1508,6 +1516,48 @@ function renderNoteAnalyst(item) {
             <span>${processed ? "已生成" : source ? `${source.length.toLocaleString()} 字符待分析` : "没有原文"}</span>
           </div>
           ${processed ? renderProcessedNote(processed) : `<div class="processed-placeholder">点击“分析当前笔记”后，会按 bullet point 生成：核心结论、Facts（原文事实）、Opinion / 判断、重要数字与实体、待验证问题和可归档摘要。</div>`}
+        </article>
+      </div>
+    </section>
+  `;
+}
+
+function portfolioUniverse() {
+  const rows = state.companies.filter((company) => (
+    company.portfolioStatus
+    || company.coverageStatus
+    || company.universeType === "portfolio"
+    || company.universeType === "coverage"
+  ));
+  return rows.length ? rows : state.companies;
+}
+
+function renderNotePort(item) {
+  const currentModel = localStorage.getItem("andy-workstation-note-processor-model") || noteProcessorModels[0].id;
+  const selected = noteProcessorModels.find((model) => model.id === currentModel) || noteProcessorModels[0];
+  const source = materialTranslation(item) || originalNoteText(item);
+  const impact = materialPortfolioImpact(item);
+  const universe = portfolioUniverse();
+  return `
+    <section class="processor-panel port-impact-panel">
+      <div class="processor-head">
+        <div>
+          <strong>Port</strong>
+          <p>用“处理者”的整理稿，分析这篇笔记对 Portfolio / Coverage 公司的正负影响。</p>
+        </div>
+        <span>${escapeHtml(selected.label)}</span>
+      </div>
+
+      ${renderProcessorControls({ buttonText: "分析组合影响", busyText: "分析中...", dataAttr: "data-portfolio-impact-note", source })}
+      ${noteProcessorStatus ? `<div class="processor-status">${escapeHtml(noteProcessorStatus)}</div>` : ""}
+
+      <div class="processor-layout">
+        <article>
+          <div class="processor-section-title">
+            <strong>组合影响</strong>
+            <span>${impact ? "已生成" : `${universe.length} 家公司待分析`}</span>
+          </div>
+          ${impact ? renderProcessedNote(impact) : `<div class="processed-placeholder">点击“分析组合影响”后，会按公司逐个判断上下游、替代、竞争和 TAM 影响，并标出正面/负面/中性/待验证。</div>`}
         </article>
       </div>
     </section>
@@ -2509,13 +2559,13 @@ async function processCurrentNote(task = "analyze") {
   const model = noteProcessorModels.find((row) => row.id === modelId) || noteProcessorModels[0];
   const apiKeyInput = document.querySelector("#processorApiKeyInput")?.value.trim() || "";
   const remember = document.querySelector("#processorRememberKey")?.checked;
-  const source = task === "analyze"
+  const source = (task === "analyze" || task === "portfolio")
     ? (materialTranslation(item) || originalNoteText(item))
     : originalNoteText(item);
   if (!source) {
-    noteProcessorStatus = task === "analyze"
-      ? "当前笔记没有可分析的整理稿或原文。请先用处理者整理，或切到 Transcript 检查是否有正文。"
-      : "当前笔记没有可处理的原文。请先上传/读取文件内容，或切到 Transcript 检查是否有正文。";
+    noteProcessorStatus = task === "translate"
+      ? "当前笔记没有可处理的原文。请先上传/读取文件内容，或切到 Transcript 检查是否有正文。"
+      : "当前笔记没有可分析的整理稿或原文。请先用处理者整理，或切到 Transcript 检查是否有正文。";
     render();
     return;
   }
@@ -2530,7 +2580,8 @@ async function processCurrentNote(task = "analyze") {
   }
 
   noteProcessorBusy = true;
-  noteProcessorStatus = `正在使用 ${model.label} ${task === "translate" ? "整理" : "分析"}当前笔记...`;
+  const actionLabel = task === "translate" ? "整理" : task === "portfolio" ? "分析组合影响" : "分析";
+  noteProcessorStatus = `正在使用 ${model.label} ${actionLabel}当前笔记...`;
   render();
 
   try {
@@ -2543,13 +2594,17 @@ async function processCurrentNote(task = "analyze") {
         apiKey: apiKeyInput || processorStoredKey(model.provider),
         title: item.title,
         source,
-        sourceKind: task === "analyze" && materialTranslation(item) ? "organized-note" : "original-note"
+        sourceKind: (task === "analyze" || task === "portfolio") && materialTranslation(item) ? "organized-note" : "original-note",
+        companies: task === "portfolio" ? portfolioUniverse() : undefined
       })
     });
     const result = data.result || "";
     if (task === "translate") {
       item.translationText = result;
       item.tags = [...new Set([...materialTags(item), "已整理", model.label])].slice(0, 12);
+    } else if (task === "portfolio") {
+      item.portfolioImpactText = result;
+      item.tags = [...new Set([...materialTags(item), "组合影响", model.label])].slice(0, 12);
     } else {
       item.viewText = result;
       item.summary = result.replace(/\s+/g, " ").trim().slice(0, 280);
@@ -2557,13 +2612,15 @@ async function processCurrentNote(task = "analyze") {
     }
     item.processor = { model: model.id, provider: model.provider, task, processedAt: new Date().toISOString() };
     item.publishedAt = new Date().toISOString();
-    noteProcessorStatus = `已完成：${model.label} 已生成${task === "translate" ? "整理稿" : "分析结果"}。`;
+    noteProcessorStatus = `已完成：${model.label} 已生成${task === "translate" ? "整理稿" : task === "portfolio" ? "组合影响分析" : "分析结果"}。`;
     saveState();
     persistItems([item]);
   } catch (error) {
     noteProcessorStatus = `处理失败：${error.message || "模型接口暂时不可用"}`;
     if (task === "translate") {
       item.translationText = `处理失败：${error.message || "模型接口暂时不可用"}\n请检查 API key、模型名或 Cloudflare 环境变量。`;
+    } else if (task === "portfolio") {
+      item.portfolioImpactText = `## 处理失败\n- ${error.message || "模型接口暂时不可用"}\n- 请检查 API key、模型名或 Cloudflare 环境变量。`;
     } else {
       item.viewText = `## 处理失败\n- ${error.message || "模型接口暂时不可用"}\n- 请检查 API key、模型名或 Cloudflare 环境变量。`;
     }
@@ -2689,6 +2746,11 @@ document.addEventListener("click", (event) => {
   const analyzeNote = event.target.closest("[data-analyze-note]");
   if (analyzeNote) {
     processCurrentNote("analyze");
+    return;
+  }
+  const portfolioImpactNote = event.target.closest("[data-portfolio-impact-note]");
+  if (portfolioImpactNote) {
+    processCurrentNote("portfolio");
     return;
   }
   const saveIdea = event.target.closest("[data-save-note-idea]");
