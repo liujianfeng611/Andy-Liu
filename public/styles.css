@@ -1591,7 +1591,7 @@ body.note-reader-mode .main-stage {
 
 .processor-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -1622,7 +1622,7 @@ body.note-reader-mode .main-stage {
 }
 
 .processed-placeholder {
-  min-height: 420px;
+  min-height: 260px;
   border: 1px dashed var(--line);
   border-radius: 8px;
   color: var(--muted);
@@ -1633,7 +1633,7 @@ body.note-reader-mode .main-stage {
 .processed-note {
   display: grid;
   gap: 12px;
-  max-height: 65vh;
+  max-height: none;
   overflow: auto;
   padding-right: 4px;
 }

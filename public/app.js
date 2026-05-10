@@ -1379,11 +1379,10 @@ function renderNoteProcessor(item, transcript) {
 
       <div class="processor-layout">
         <article>
-          <div class="processor-section-title"><strong>原始笔记</strong><span>${source.length.toLocaleString()} 字符</span></div>
-          <pre>${escapeHtml(source || "当前笔记还没有可处理的原文。")}</pre>
-        </article>
-        <article>
-          <div class="processor-section-title"><strong>清洗结果</strong><span>${processed ? "已生成" : "等待处理"}</span></div>
+          <div class="processor-section-title">
+            <strong>清洗结果</strong>
+            <span>${processed ? "已生成" : source ? `${source.length.toLocaleString()} 字符待处理` : "没有原文"}</span>
+          </div>
           ${processed ? renderProcessedNote(processed) : `<div class="processed-placeholder">点击“清洗当前笔记”后，会按 bullet point 生成：核心结论、Facts（原文事实）、Opinion / 判断、重要数字与实体、待验证问题和可归档摘要。</div>`}
         </article>
       </div>
