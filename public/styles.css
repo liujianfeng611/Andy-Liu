@@ -1931,17 +1931,10 @@ body.note-reader-mode .main-stage {
 .daily-news-tabs button.active,
 .daily-source-form button,
 .daily-news-generate button,
-.daily-news-card-actions button,
-.daily-news-tabs button.primary {
+.daily-news-card-actions button {
   border-color: #145f83;
   background: #0f3d55;
   color: #abe7ff;
-}
-
-.daily-news-tabs button.primary {
-  background: #2269e8;
-  border-color: #2879ff;
-  color: #fff;
 }
 
 .daily-news-tabs button:disabled,
@@ -2530,12 +2523,6 @@ body.daily-mode .daily-news-tabs button {
 body.daily-mode .daily-news-tabs button.active {
   background: #e9eef8;
   color: #2d61e8;
-}
-
-body.daily-mode .daily-news-tabs button.primary {
-  border-color: #3b82f6;
-  background: #3b82f6;
-  color: #fff;
 }
 
 body.daily-mode .daily-agent-brief {

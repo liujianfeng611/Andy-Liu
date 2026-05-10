@@ -1354,7 +1354,6 @@ function renderDailyNewsBoard() {
       <nav class="daily-news-tabs" aria-label="今日新闻">
         <button class="${activeTab === "sources" ? "active" : ""}" data-daily-news-tab="sources" type="button">⚙ 新闻源</button>
         <button class="${activeTab === "generate" ? "active" : ""}" data-daily-news-tab="generate" type="button">生成今日新闻</button>
-        <button class="primary" data-generate-daily-news type="button" ${dailyNewsBusy || !sources.length ? "disabled" : ""}>↻ ${dailyNewsBusy ? "扫描中" : "立即扫描"}</button>
       </nav>
     </div>
 
@@ -1400,7 +1399,7 @@ function renderDailyNewsBoard() {
       <section class="daily-headlines-panel">
         <div class="daily-section-title"><span>⌄ ☆</span><strong>今日要闻</strong><em>${Math.min(rows.length, 5)}</em></div>
         <div class="daily-headline-list">
-          ${topNews || `<div class="empty-list">点击“立即扫描”后，今日要闻会显示在这里。</div>`}
+          ${topNews || `<div class="empty-list">点击“生成今日新闻”后，今日要闻会显示在这里。</div>`}
         </div>
       </section>
 
@@ -1455,15 +1454,15 @@ function relativeNewsTime(value) {
 }
 
 function dailyCategoryCards(rows) {
-  const groups = [
-    ["科技资讯", "▰", /ai|chip|semiconductor|cloud|software|tech|gpu|算力|芯片|云|软件|科技/i],
-    ["AI动态", "▣", /openai|anthropic|gemini|agent|model|llm|ai|claude|gpt|模型|智能体/i],
-    ["公司与财报", "◫", /earnings|revenue|margin|guidance|sales|profit|财报|收入|利润|毛利|指引/i],
-    ["市场与风险", "◇", /stock|market|rate|risk|regulat|lawsuit|政策|监管|市场|风险|利率/i]
-  ].map(([label, icon, pattern]) => {
-    const matched = rows.filter((item) => pattern.test(`${item.title || ""} ${item.summary || ""} ${item.sourceText || ""}`)).slice(0, 4);
-    return { label, icon, rows: matched.length ? matched : rows.slice(0, 2) };
-  });
+  const uncategorized = rows.filter((item) => !dailyNewsSourceCatalog.some((group) => group.category === item.category));
+  const groups = dailyNewsSourceCatalog.map((group) => ({
+    label: group.category,
+    icon: group.icon,
+    rows: rows.filter((item) => item.category === group.category).slice(0, 4)
+  }));
+  if (uncategorized.length) {
+    groups.push({ label: "其他", icon: "◇", rows: uncategorized.slice(0, 4) });
+  }
   return groups.map((group) => `
     <article class="daily-category-card">
       <div class="daily-section-title"><span>${escapeHtml(group.icon)}</span><strong>${escapeHtml(group.label)}</strong><em>${group.rows.length}</em></div>
