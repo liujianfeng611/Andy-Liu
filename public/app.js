@@ -89,11 +89,11 @@ const noteReaderTabs = [
 
 const noteProcessorModels = [
   { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite", provider: "google" },
-  { id: "gemini-3.1-pro", label: "Gemini 3.1 Pro", provider: "google" },
+  { id: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview", provider: "google" },
   { id: "gpt-5.5", label: "GPT 5.5", provider: "openai" },
   { id: "gpt-5.4-mini", label: "GPT 5.4 Mini", provider: "openai" },
   { id: "glm-5.1", label: "GLM 5.1", provider: "glm" },
-  { id: "minimax-m2.7", label: "MiniMax M2.7", provider: "minimax" },
+  { id: "MiniMax-M2.7", label: "MiniMax M2.7", provider: "minimax" },
   { id: "mimo-v2.5-pro", label: "Mimo v2.5 Pro", provider: "mimo" }
 ];
 
@@ -2362,9 +2362,13 @@ async function processCurrentNote(task = "analyze") {
   const model = noteProcessorModels.find((row) => row.id === modelId) || noteProcessorModels[0];
   const apiKeyInput = document.querySelector("#processorApiKeyInput")?.value.trim() || "";
   const remember = document.querySelector("#processorRememberKey")?.checked;
-  const source = originalNoteText(item);
+  const source = task === "analyze"
+    ? (materialTranslation(item) || originalNoteText(item))
+    : originalNoteText(item);
   if (!source) {
-    noteProcessorStatus = "当前笔记没有可处理的原文。请先上传/读取文件内容，或切到 Transcript 检查是否有正文。";
+    noteProcessorStatus = task === "analyze"
+      ? "当前笔记没有可分析的整理稿或原文。请先用处理者整理，或切到 Transcript 检查是否有正文。"
+      : "当前笔记没有可处理的原文。请先上传/读取文件内容，或切到 Transcript 检查是否有正文。";
     render();
     return;
   }
@@ -2391,7 +2395,8 @@ async function processCurrentNote(task = "analyze") {
         task,
         apiKey: apiKeyInput || processorStoredKey(model.provider),
         title: item.title,
-        source
+        source,
+        sourceKind: task === "analyze" && materialTranslation(item) ? "organized-note" : "original-note"
       })
     });
     const result = data.result || "";

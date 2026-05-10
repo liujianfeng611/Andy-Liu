@@ -321,7 +321,7 @@ function providerBaseUrl(env, provider) {
   return {
     glm: env.GLM_BASE_URL || "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     minimax: env.MINIMAX_BASE_URL || "https://api.minimax.io/v1/chat/completions",
-    mimo: env.MIMO_BASE_URL || "https://api.mimo.ai/v1/chat/completions"
+    mimo: env.MIMO_BASE_URL || "https://api.mimo-v2.com/v1/chat/completions"
   }[provider];
 }
 
@@ -366,7 +366,7 @@ async function callGoogleModel(apiKey, model, prompt) {
       }
     })
   });
-  if (!response.ok) throw new Error(`Google AI ${response.status}: ${await response.text()}`);
+  if (!response.ok) throw new Error(`Google AI ${response.status}: ${await response.text().then(readableProviderError)}`);
   const data = await response.json();
   return cleanModelText(data.candidates?.[0]?.content?.parts?.map((part) => part.text).join("\n")) || "模型暂无返回。";
 }
@@ -380,7 +380,7 @@ async function callOpenAiResponses(apiKey, model, prompt, baseUrl = "https://api
     },
     body: JSON.stringify({ model, input: prompt, max_output_tokens: 16384 })
   });
-  if (!response.ok) throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+  if (!response.ok) throw new Error(`OpenAI ${response.status}: ${await response.text().then(readableProviderError)}`);
   const data = await response.json();
   return cleanModelText(
     data.output_text
@@ -390,7 +390,7 @@ async function callOpenAiResponses(apiKey, model, prompt, baseUrl = "https://api
 
 async function callOpenAiCompatible(apiKey, model, prompt, url, label) {
   if (!url) throw new Error(`${label} endpoint is not configured`);
-  const response = await fetch(url, {
+  const response = await fetch(normalizeChatCompletionsUrl(url), {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -406,9 +406,23 @@ async function callOpenAiCompatible(apiKey, model, prompt, url, label) {
       max_tokens: 16384
     })
   });
-  if (!response.ok) throw new Error(`${label} ${response.status}: ${await response.text()}`);
+  if (!response.ok) throw new Error(`${label} ${response.status}: ${await response.text().then(readableProviderError)}`);
   const data = await response.json();
   return cleanModelText(data.choices?.[0]?.message?.content || data.output_text || data.text) || "模型暂无返回。";
+}
+
+function normalizeChatCompletionsUrl(value) {
+  const url = cleanText(value).replace(/\/+$/, "");
+  return /\/chat\/completions$/i.test(url) ? url : `${url}/chat/completions`;
+}
+
+function readableProviderError(text) {
+  try {
+    const data = JSON.parse(text);
+    return cleanText(data.error?.message || data.error || data.message || text).slice(0, 800);
+  } catch {
+    return cleanText(text).slice(0, 800);
+  }
 }
 
 async function fetchJson(url, headers = {}) {
