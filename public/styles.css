@@ -2988,6 +2988,92 @@ body.light-theme .folder-url-save input {
   color: #2d2925;
 }
 
+body.light-theme .cloud-folder,
+body.light-theme .cloud-folder.directory,
+body.light-theme .cloud-folder.custom {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #2d2925;
+}
+
+body.light-theme .cloud-folder:hover,
+body.light-theme .cloud-folder.active {
+  border-color: #8fb9f4;
+  background: #eef6ff;
+}
+
+body.light-theme .folder-main strong,
+body.light-theme .folder-breadcrumb strong,
+body.light-theme .company-group-title,
+body.light-theme .mini-card .drawer-title h2,
+body.light-theme .universe-upload strong,
+body.light-theme .universe-row strong {
+  color: #24211f;
+}
+
+body.light-theme .folder-main span,
+body.light-theme .folder-meta span,
+body.light-theme .folder-breadcrumb span,
+body.light-theme .company-group-title em,
+body.light-theme .universe-upload small,
+body.light-theme .universe-summary p,
+body.light-theme .universe-row span {
+  color: #7a7169;
+}
+
+body.light-theme .right-drawer {
+  border-left-color: #e7e2dd;
+  background: #fbfbfa;
+}
+
+body.light-theme .mini-card,
+body.light-theme .universe-card {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  box-shadow: none;
+  color: #2d2925;
+}
+
+body.light-theme .company-pill,
+body.light-theme .universe-row,
+body.light-theme .universe-kpis span {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #342f2b;
+}
+
+body.light-theme .company-pill.active {
+  border-color: #1686c7;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+body.light-theme .universe-upload,
+body.light-theme .import-box {
+  border-color: #ddd7d1;
+  background: #fbfbfa;
+}
+
+body.light-theme .thesis-hero {
+  border-color: #b7dccb;
+  background: #edf8f2;
+  color: #214333;
+}
+
+body.light-theme .thesis-hero span {
+  color: #6f8a7d;
+}
+
+body.light-theme .thesis-hero p {
+  color: #315744;
+}
+
+body.light-theme .evidence-map button {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #342f2b;
+}
+
 body.daily-mode {
   background: #f7f7f6;
   color: #27221f;
