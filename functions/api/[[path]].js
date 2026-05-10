@@ -24,6 +24,7 @@ export async function onRequest(context) {
     if (route === "items" && context.request.method === "DELETE") return deleteItems(context);
     if (route === "ask" && context.request.method === "POST") return askPmAgent(context);
     if (route === "process-note" && context.request.method === "POST") return processNote(context);
+    if (route === "daily-news-localize" && context.request.method === "POST") return localizeDailyNews(context);
     if (route === "fetch-url" && context.request.method === "POST") return fetchUrlResource(context);
     if (route === "open-web" && context.request.method === "GET") return getOpenWeb(url);
     if (route === "sec" && context.request.method === "GET") return getSec(url);
@@ -443,6 +444,110 @@ async function processNote(context) {
   }
 
   return json({ result, model, provider, task, processedAt: new Date().toISOString() });
+}
+
+async function localizeDailyNews(context) {
+  const payload = await context.request.json().catch(() => ({}));
+  const items = Array.isArray(payload.items) ? payload.items.slice(0, 100) : [];
+  if (!items.length) return json({ items: [], categorySummaries: {} });
+  const apiKey = cleanText(payload.apiKey) || context.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) {
+    return json(localizeDailyNewsFallback(items, "Missing GOOGLE_AI_API_KEY"));
+  }
+
+  const prompt = [
+    "你是基金经理的中文新闻晨报编辑。请把英文新闻标题翻译成简洁自然的中文，并按分类生成今日中文总结。",
+    "要求：",
+    "- 只基于输入新闻，不要编造新事实。",
+    "- 标题翻译保留公司名、产品名、金额、百分比、模型名等专有名词。",
+    "- 中文标题要像财经新闻标题，短而清楚。",
+    "- 每个分类总结 1-2 句中文，说明今日主线、重要事实和需要跟踪的投研含义。",
+    "- 只返回 JSON，不要 Markdown，不要代码块。",
+    "JSON 格式：",
+    "{\"items\":[{\"id\":\"...\",\"zhTitle\":\"...\"}],\"categorySummaries\":{\"科技资讯\":\"...\"}}",
+    "输入新闻：",
+    JSON.stringify(items.map((item) => ({
+      id: item.id,
+      category: item.category,
+      title: item.title,
+      summary: item.summary,
+      source: item.source
+    }))).slice(0, 80000)
+  ].join("\n");
+
+  try {
+    const text = await callGoogleModel(apiKey, "gemini-3.1-flash-lite", prompt);
+    const parsed = parseJsonObject(text);
+    return json({
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      categorySummaries: parsed.categorySummaries || {},
+      backend: "gemini"
+    });
+  } catch (error) {
+    return json(localizeDailyNewsFallback(items, error.message || "Gemini localization failed"));
+  }
+}
+
+function localizeDailyNewsFallback(items, error = "") {
+  const categoryRows = {};
+  const localizedItems = items.map((item) => {
+    const zhTitle = localizeTitleFallback(item.title);
+    const category = item.category || "未分类";
+    if (!categoryRows[category]) categoryRows[category] = [];
+    if (categoryRows[category].length < 3) categoryRows[category].push(zhTitle);
+    return { id: item.id, zhTitle };
+  });
+  const categorySummaries = Object.fromEntries(Object.entries(categoryRows).map(([category, titles]) => [
+    category,
+    `${category}今日主要关注：${titles.join("；")}。需要继续跟踪对相关公司、行业格局和盈利预期的影响。`
+  ]));
+  return { items: localizedItems, categorySummaries, backend: "fallback", error };
+}
+
+function localizeTitleFallback(value) {
+  let title = cleanHtmlText(value || "");
+  if (/[\u4e00-\u9fff]/.test(title)) return title;
+  [
+    [/latest/gi, "最新"],
+    [/news/gi, "新闻"],
+    [/analysis/gi, "分析"],
+    [/earnings/gi, "财报"],
+    [/revenue/gi, "收入"],
+    [/guidance/gi, "指引"],
+    [/partnership/gi, "合作"],
+    [/funding/gi, "融资"],
+    [/startup/gi, "初创公司"],
+    [/markets?/gi, "市场"],
+    [/business/gi, "商业"],
+    [/stock/gi, "股票"],
+    [/semiconductor/gi, "半导体"],
+    [/chip/gi, "芯片"],
+    [/cloud/gi, "云"],
+    [/model/gi, "模型"],
+    [/release/gi, "发布"],
+    [/benchmark/gi, "基准测试"],
+    [/agent/gi, "智能体"],
+    [/\bAI\b/g, "AI"],
+    [/crypto/gi, "加密"],
+    [/payment/gi, "支付"],
+    [/gaming/gi, "游戏"],
+    [/advertising/gi, "广告"],
+    [/media/gi, "媒体"]
+  ].forEach(([pattern, replacement]) => {
+    title = title.replace(pattern, replacement);
+  });
+  return title;
+}
+
+function parseJsonObject(text) {
+  const raw = String(text || "").replace(/^```json\s*|\s*```$/g, "").trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return {};
+    return JSON.parse(match[0]);
+  }
 }
 
 async function callGoogleModel(apiKey, model, prompt) {

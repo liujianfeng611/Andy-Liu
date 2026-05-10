@@ -2385,6 +2385,37 @@ body.note-reader-mode .main-stage {
   padding: 14px;
 }
 
+.daily-category-news-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.daily-category-news-list button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #090908;
+  color: #ded8d1;
+  padding: 10px;
+  text-align: left;
+}
+
+.daily-category-news-list strong {
+  overflow: hidden;
+  color: #eee8df;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daily-category-news-list span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .folder-board-top {
   display: flex;
   align-items: end;

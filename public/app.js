@@ -12,6 +12,7 @@ const defaultState = {
   dailyNewsTab: "sources",
   dailyNewsSources: [],
   dailyNewsItems: [],
+  dailyNewsCategorySummaries: {},
   folderPath: [],
   customFolders: [],
   companies: [
@@ -1315,7 +1316,7 @@ function renderDailyNewsBoard() {
     return `
       <button class="daily-headline-row" data-daily-item-id="${escapeHtml(item.id)}" type="button">
         <span class="daily-ticker">${escapeHtml(ticker)}</span>
-        <strong>${escapeHtml(readableText(item.title || "未命名新闻"))}</strong>
+        <strong>${escapeHtml(dailyNewsTitle(item))}</strong>
         <em>${escapeHtml(dailyNewsSummary(item))}</em>
         <small>${escapeHtml(item.source || "open web")}</small>
         <time>${escapeHtml(relativeNewsTime(item.publishedAt || item.createdAt))}</time>
@@ -1331,7 +1332,7 @@ function renderDailyNewsBoard() {
           <span>${escapeHtml(item.source || "NEWS")}</span>
           <em>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</em>
         </div>
-        <h3>${escapeHtml(readableText(item.title || "未命名新闻"))}</h3>
+        <h3>${escapeHtml(dailyNewsTitle(item))}</h3>
         <p>${escapeHtml(dailyNewsSummary(item))}</p>
         <div class="daily-news-card-actions">
           ${link ? `<button data-open-url="${escapeHtml(link)}" type="button">打开原文</button>` : ""}
@@ -1466,9 +1467,30 @@ function dailyCategoryCards(rows) {
   return groups.map((group) => `
     <article class="daily-category-card">
       <div class="daily-section-title"><span>${escapeHtml(group.icon)}</span><strong>${escapeHtml(group.label)}</strong><em>${group.rows.length}</em></div>
-      <p>${escapeHtml(group.rows.map((item) => dailyNewsSummary(item) || readableText(item.title)).filter(Boolean).join("。").slice(0, 260) || "扫描后会生成这一类新闻摘要。")}</p>
+      <p>${escapeHtml(dailyCategorySummary(group.label, group.rows))}</p>
+      <div class="daily-category-news-list">
+        ${group.rows.map((item) => `
+          <button data-daily-item-id="${escapeHtml(item.id)}" type="button">
+            <strong>${escapeHtml(dailyNewsTitle(item))}</strong>
+            <span>${escapeHtml(item.source || "open web")} · ${escapeHtml(relativeNewsTime(item.publishedAt || item.createdAt))}</span>
+          </button>
+        `).join("")}
+      </div>
     </article>
   `).join("");
+}
+
+function dailyCategorySummary(category, rows) {
+  const aiSummary = state.dailyNewsCategorySummaries?.[category];
+  if (aiSummary) return aiSummary;
+  const titles = rows.map((item) => dailyNewsTitle(item)).filter(Boolean);
+  if (!titles.length) return "扫描后会生成这一类新闻的中文摘要。";
+  const names = titles.slice(0, 3).join("；");
+  return `${category}今日主要关注：${names}。需要继续跟踪这些事件对持仓公司、竞争格局和盈利预期的影响。`;
+}
+
+function dailyNewsTitle(item) {
+  return readableText(item?.zhTitle || item?.translatedTitle || localizeNewsTitle(item?.title || "未命名新闻"));
 }
 
 function dailyNewsSummary(item) {
@@ -1478,6 +1500,39 @@ function dailyNewsSummary(item) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 320);
+}
+
+function localizeNewsTitle(title) {
+  const original = readableText(title || "");
+  if (!original || /[\u4e00-\u9fff]/.test(original)) return original;
+  const dictionary = [
+    [/latest/gi, "最新"],
+    [/news/gi, "新闻"],
+    [/analysis/gi, "分析"],
+    [/earnings/gi, "财报"],
+    [/revenue/gi, "收入"],
+    [/guidance/gi, "指引"],
+    [/partnership/gi, "合作"],
+    [/funding/gi, "融资"],
+    [/startup/gi, "初创公司"],
+    [/markets?/gi, "市场"],
+    [/business/gi, "商业"],
+    [/stock/gi, "股票"],
+    [/semiconductor/gi, "半导体"],
+    [/chip/gi, "芯片"],
+    [/cloud/gi, "云"],
+    [/model/gi, "模型"],
+    [/release/gi, "发布"],
+    [/benchmark/gi, "基准测试"],
+    [/agent/gi, "智能体"],
+    [/AI/gi, "AI"],
+    [/crypto/gi, "加密"],
+    [/payment/gi, "支付"],
+    [/gaming/gi, "游戏"],
+    [/advertising/gi, "广告"],
+    [/media/gi, "媒体"]
+  ];
+  return dictionary.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), original);
 }
 
 function pseudoPrice(company) {
@@ -3211,6 +3266,93 @@ function newsItemFromFetch(source, data, now) {
   };
 }
 
+function newsItemFromArticle(source, article, now, index = 0) {
+  const title = readableText(article.title || source.name || source.query || source.url);
+  const summary = readableText(article.summary || article.snippet || article.title || "").slice(0, 360);
+  return {
+    id: `daily-news-${source.id}-${index}-${String(article.id || article.url || title).toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 90)}`,
+    companyId: null,
+    type: "open",
+    folderId: "daily-news",
+    category: source.category || "未分类",
+    domain: source.domain || "",
+    query: source.query || "",
+    tags: ["今日新闻", "新闻源", source.category || "", source.domain || source.name || "NEWS"].filter(Boolean),
+    title,
+    zhTitle: localizeNewsTitle(title),
+    source: article.source || source.domain || source.name || "NEWS",
+    url: article.url || source.url,
+    sourceText: summary,
+    viewText: "",
+    createdAt: now,
+    publishedAt: article.publishedAt || now,
+    summary
+  };
+}
+
+async function fetchDailySource(source, now) {
+  if (source.query) {
+    const query = source.domain && source.domain !== "广义搜索"
+      ? `site:${source.domain} ${source.query}`
+      : source.query;
+    const data = await api(`open-web?q=${encodeURIComponent(query)}`);
+    return (data.articles || [])
+      .slice(0, Number(source.limit || 3))
+      .map((article, index) => newsItemFromArticle(source, article, now, index));
+  }
+  const data = await api("fetch-url", {
+    method: "POST",
+    body: JSON.stringify({ url: source.url })
+  });
+  return [newsItemFromFetch(source, data, now)];
+}
+
+async function localizeDailyNews(items) {
+  if (!items.length) return { items, summaries: {} };
+  const fallback = buildDailyCategorySummaries(items);
+  try {
+    const data = await api("daily-news-localize", {
+      method: "POST",
+      body: JSON.stringify({
+        items: items.slice(0, 80).map((item) => ({
+          id: item.id,
+          category: item.category || "未分类",
+          title: item.title,
+          summary: item.summary,
+          source: item.source
+        }))
+      })
+    });
+    const titleMap = new Map((data.items || []).map((row) => [row.id, row.zhTitle]));
+    return {
+      items: items.map((item) => ({
+        ...item,
+        zhTitle: titleMap.get(item.id) || item.zhTitle || localizeNewsTitle(item.title)
+      })),
+      summaries: { ...fallback, ...(data.categorySummaries || {}) }
+    };
+  } catch (error) {
+    console.warn("Daily news localization failed:", error.message);
+    return {
+      items: items.map((item) => ({ ...item, zhTitle: item.zhTitle || localizeNewsTitle(item.title) })),
+      summaries: fallback
+    };
+  }
+}
+
+function buildDailyCategorySummaries(items) {
+  const grouped = items.reduce((acc, item) => {
+    const category = item.category || "未分类";
+    if (!acc[category]) acc[category] = [];
+    if (acc[category].length < 3) acc[category].push(localizeNewsTitle(item.title));
+    return acc;
+  }, {});
+  return Object.fromEntries(Object.entries(grouped).map(([category, titles]) => [
+    category,
+    `${category}今日主要关注：${titles.join("；")}。需要继续跟踪对相关公司、行业供需和估值预期的影响。`
+  ]));
+}
+
 async function generateDailyNews() {
   const sources = dailyNewsSources();
   if (!sources.length || dailyNewsBusy) return;
@@ -3224,19 +3366,17 @@ async function generateDailyNews() {
     dailyNewsStatus = `正在抓取：${source.name || source.url}`;
     render();
     try {
-      const data = await api("fetch-url", {
-        method: "POST",
-        body: JSON.stringify({ url: source.url })
-      });
-      results.push(newsItemFromFetch(source, data, now));
+      results.push(...await fetchDailySource(source, now));
     } catch (error) {
       results.push({
         id: `daily-news-error-${source.id}-${Date.now().toString(36)}`,
         companyId: null,
         type: "open",
         folderId: "daily-news",
+        category: source.category || "未分类",
         tags: ["今日新闻", "抓取失败", source.name || "NEWS"],
         title: `${source.name || source.url} 抓取失败`,
+        zhTitle: `${source.name || source.url} 抓取失败`,
         source: source.name || "NEWS",
         url: source.url,
         sourceText: `抓取失败：${error.message || "网站暂时无法读取"}`,
@@ -3248,10 +3388,15 @@ async function generateDailyNews() {
     }
   }
 
+  dailyNewsStatus = "正在生成中文标题和分类摘要...";
+  render();
+  const localized = await localizeDailyNews(results);
+  const localizedResults = localized.items;
   const known = new Set(state.items.map((item) => item.id));
-  const fresh = results.filter((item) => item.id && !known.has(item.id));
+  const fresh = localizedResults.filter((item) => item.id && !known.has(item.id));
   state.items = [...fresh, ...state.items].slice(0, 600);
   state.dailyNewsItems = fresh;
+  state.dailyNewsCategorySummaries = localized.summaries;
   state.lastFetchedAt = new Date().toISOString();
   state.dailyNewsTab = "generate";
   dailyNewsStatus = `已生成 ${fresh.length} 条今日新闻。`;
