@@ -1380,7 +1380,7 @@ function renderDailyNewsBoard() {
       </section>
     ` : `
       <section class="daily-agent-brief">
-        <button class="daily-collapse" type="button">⌄</button>
+        <button class="daily-collapse" type="button">›</button>
         <div class="daily-agent-label">
           <span>▣</span>
           <strong>AI Agent 播报</strong>
@@ -2591,7 +2591,7 @@ function renderRailTabs() {
 function renderAgentTabs() {
   const tabs = [
     "首页",
-    ...(state.railView === "daily" ? ["今日新闻"] : []),
+    ...(state.railView === "daily" ? ["新闻速递"] : []),
     "Andy PM Agent",
     "日度Agent",
     "周报Agent",
@@ -2602,7 +2602,7 @@ function renderAgentTabs() {
     "军工金融Agent"
   ];
   els.agentTabs.innerHTML = tabs.map((tab, index) => `
-    <button class="${(state.railView === "daily" ? tab === "今日新闻" : index === 0) ? "active" : ""}" type="button">${escapeHtml(tab)}</button>
+    <button class="${(state.railView === "daily" ? tab === "新闻速递" : index === 0) ? "active" : ""}" type="button">${escapeHtml(tab)}</button>
   `).join("");
 }
 
