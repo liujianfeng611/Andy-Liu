@@ -2561,6 +2561,12 @@ textarea {
   color: #abe7ff;
 }
 
+#globalUploadBtn {
+  background: #0f4d68;
+  border-color: #1f84a8;
+  color: #b9f0ff;
+}
+
 .full {
   width: 100%;
 }

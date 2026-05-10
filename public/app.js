@@ -152,6 +152,7 @@ const els = {
   saveCompanyBtn: document.querySelector("#saveCompanyBtn"),
   refreshBtn: document.querySelector("#refreshBtn"),
   fileInput: document.querySelector("#fileInput"),
+  globalUploadBtn: document.querySelector("#globalUploadBtn"),
   noteInput: document.querySelector("#noteInput"),
   saveNoteBtn: document.querySelector("#saveNoteBtn"),
   newMaterialBtn: document.querySelector("#newMaterialBtn"),
@@ -979,14 +980,17 @@ function renderFolderBoard() {
       return `
         <article class="folder-card-large custom-folder-card">
           <button class="folder-card-head" data-custom-folder="${escapeHtml(folder.id)}" type="button">
-            <span class="folder-card-icon">▰</span>
-            <strong>${escapeHtml(folder.name)}</strong>
-            <em>${items.length}</em>
-          </button>
-          <p>${childCustomFolders(folder.id).length} 个子文件夹 · ${items.length} 份资料</p>
-        </article>
-      `;
-    }).join("");
+          <span class="folder-card-icon">▰</span>
+          <strong>${escapeHtml(folder.name)}</strong>
+          <em>${items.length}</em>
+        </button>
+        <p>${childCustomFolders(folder.id).length} 个子文件夹 · ${items.length} 份资料</p>
+        <div class="folder-chip-grid">
+          <button class="folder-chip" data-upload-folder="${escapeHtml(folder.id)}" type="button"><span>＋</span>上传文件</button>
+        </div>
+      </article>
+    `;
+  }).join("");
     const items = customFolderItems(selectedCustomFolder.id);
     const fileCards = items.map((item) => `
       <article class="folder-card-large file-card">
@@ -1005,7 +1009,7 @@ function renderFolderBoard() {
         <button class="folder-board-back" ${selectedCustomFolder.parentId ? `data-custom-folder="${escapeHtml(selectedCustomFolder.parentId)}"` : "data-folder-back"} type="button">← 云端文件夹 / ${escapeHtml(selectedCustomFolder.name)}</button>
         <div class="folder-board-actions">
           <button data-create-folder="${escapeHtml(selectedCustomFolder.id)}" type="button">新建子文件夹</button>
-          <button data-upload-folder="${escapeHtml(selectedCustomFolder.id)}" type="button">上传资料</button>
+          <button data-upload-folder="${escapeHtml(selectedCustomFolder.id)}" type="button">上传文件</button>
           <button data-delete-folder="${escapeHtml(selectedCustomFolder.id)}" type="button">删除文件夹</button>
         </div>
       </div>
@@ -2927,6 +2931,16 @@ document.addEventListener("input", (event) => {
   if (stateLabel) stateLabel.textContent = "正在输入...";
   window.clearTimeout(ideaSaveTimer);
   ideaSaveTimer = window.setTimeout(() => saveCurrentNoteIdea(), 1200);
+});
+els.globalUploadBtn.addEventListener("click", () => {
+  const selected = Array.isArray(state.folderPath) ? state.folderPath[0] || "" : "";
+  const customId = selected.startsWith("custom:") ? selected.slice(7) : "";
+  if (state.railView === "folders" && customId) {
+    els.folderUploadInput.dataset.folderId = customId;
+    els.folderUploadInput.click();
+    return;
+  }
+  els.fileInput.click();
 });
 document.querySelectorAll("[data-rail-view]").forEach((button) => {
   button.addEventListener("click", () => {
