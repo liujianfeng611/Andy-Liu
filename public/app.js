@@ -1394,7 +1394,7 @@ function renderNoteProcessor(item) {
       <div class="processor-head">
         <div>
           <strong>处理者</strong>
-          <p>选择模型，把当前笔记原文完整翻译成易读中文。</p>
+          <p>选择模型，把当前笔记原文逐段完整翻译成易读中文。</p>
         </div>
         <span>${escapeHtml(selected.label)}</span>
       </div>
@@ -1408,7 +1408,7 @@ function renderNoteProcessor(item) {
             <strong>完整翻译</strong>
             <span>${translated ? "已生成" : source ? `${source.length.toLocaleString()} 字符待翻译` : "没有原文"}</span>
           </div>
-          ${translated ? renderTranslationText(translated) : `<div class="processed-placeholder">点击“翻译当前笔记”后，这里会显示笔记原文的完整中文翻译。</div>`}
+          ${translated ? renderTranslationText(translated) : `<div class="processed-placeholder">点击“翻译当前笔记”后，这里会按原文逻辑显示逐段完整中文翻译。</div>`}
         </article>
       </div>
     </section>

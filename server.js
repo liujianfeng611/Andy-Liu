@@ -268,7 +268,13 @@ async function generatePmAnswer(question, company, items) {
       "content-type": "application/json",
       "x-goog-api-key": process.env.GOOGLE_AI_API_KEY
     },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 16384
+      }
+    })
   });
 
   if (!response.ok) throw new Error(`Google AI ${response.status}: ${await response.text()}`);
@@ -279,12 +285,14 @@ async function generatePmAnswer(question, company, items) {
 function noteProcessPrompt(title, source, task = "analyze") {
   if (task === "translate") {
     return [
-      "你是专业投研翻译员。请把原始笔记完整翻译成中文。",
-      "要求：",
-      "- 尽量保留原文全部信息、数字、公司名、人名、时间、术语和语气。",
-      "- 不要总结，不要做投资分析，不要添加原文没有的信息。",
-      "- 如果原文已有中文，可润色成更通顺的中文；英文术语可保留括号原文。",
-      "- 按原文逻辑分段，输出易读中文。",
+      "你是专业投研翻译员。你的任务是把原始笔记逐段完整翻译成中文，而不是总结。",
+      "硬性要求：",
+      "- 必须覆盖原文的全部段落和要点，不能只提炼核心意思，不能省略例子、数字、限定条件、转折、引用和细节。",
+      "- 原文是英文时，翻译为自然、易读、有逻辑的中文；原文已有中文时，只做轻度润色和整理，不改变含义。",
+      "- 保留所有公司名、人名、产品名、日期、金额、百分比、专有名词和关键英文术语；必要时在中文后用括号保留英文原词。",
+      "- 不要新增投资分析，不要写 Facts/Opinion，不要写核心结论，不要添加原文没有的信息。",
+      "- 按原文逻辑重新分段；每段表达完整、连贯，适合基金经理快速阅读。",
+      "- 如果原文很长，也要尽量完整翻译到输出上限，不要自行压缩成摘要。",
       `标题：${title || "未命名笔记"}`,
       "原始笔记：",
       source
@@ -353,7 +361,13 @@ async function callGoogleModel(apiKey, model, prompt) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 16384
+      }
+    })
   });
   if (!response.ok) throw new Error(`Google AI ${response.status}: ${await response.text()}`);
   const data = await response.json();
@@ -364,7 +378,7 @@ async function callOpenAiResponses(apiKey, model, prompt, baseUrl = "https://api
   const response = await fetch(`${baseUrl}/responses`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, input: prompt })
+    body: JSON.stringify({ model, input: prompt, max_output_tokens: 16384 })
   });
   if (!response.ok) throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
   const data = await response.json();
@@ -378,10 +392,11 @@ async function callOpenAiCompatible(apiKey, model, prompt, endpoint, label) {
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: "你是严谨的投研笔记清洗处理器。" },
+        { role: "system", content: "你是严谨的投研资料处理器，会严格遵守用户要求：翻译时完整翻译，分析时结构化分析。" },
         { role: "user", content: prompt }
       ],
-      temperature: 0.2
+      temperature: 0.2,
+      max_tokens: 16384
     })
   });
   if (!response.ok) throw new Error(`${label} ${response.status}: ${await response.text()}`);
