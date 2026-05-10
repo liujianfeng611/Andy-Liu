@@ -173,6 +173,10 @@ const els = {
   companyImportFile: document.querySelector("#companyImportFile"),
   companyImportText: document.querySelector("#companyImportText"),
   companyImportPreview: document.querySelector("#companyImportPreview"),
+  portfolioUploadInput: document.querySelector("#portfolioUploadInput"),
+  coverageUploadInput: document.querySelector("#coverageUploadInput"),
+  portfolioCoverageCount: document.querySelector("#portfolioCoverageCount"),
+  portfolioCoverageSummary: document.querySelector("#portfolioCoverageSummary"),
   confirmCompanyImport: document.querySelector("#confirmCompanyImport"),
   confirmAddCompany: document.querySelector("#confirmAddCompany"),
   newCompanyName: document.querySelector("#newCompanyName"),
@@ -338,6 +342,19 @@ async function extractSheetText(buffer) {
   return cleanTranscriptText(sections.join("\n\n"));
 }
 
+async function readTableFile(file) {
+  if (!file) return "";
+  if (/\.(xlsx|xls)$/i.test(file.name || "")) {
+    await loadScriptOnce("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+    if (!window.XLSX?.read) throw new Error("Excel 解析器未就绪");
+    const workbook = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) return "";
+    return window.XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName], { FS: "\t", blankrows: false });
+  }
+  return file.text();
+}
+
 async function readUploadText(file) {
   const kind = fileKind(file);
   const buffer = await file.arrayBuffer();
@@ -442,7 +459,16 @@ async function persistCompany(company) {
       ticker: company.ticker,
       cik: company.cik,
       topics: company.topics || [],
-      notes: company.notes || ""
+      notes: company.notes || "",
+      industry: company.industry || "",
+      universeType: company.universeType || "",
+      portfolioStatus: company.portfolioStatus || "",
+      coverageStatus: company.coverageStatus || "",
+      positionWeight: company.positionWeight || "",
+      positionShares: company.positionShares || "",
+      costBasis: company.costBasis || "",
+      coveragePriority: company.coveragePriority || "",
+      universeNote: company.universeNote || ""
     };
     await api("companies", { method: "POST", body: JSON.stringify(payload) });
   } catch (error) {
@@ -1899,6 +1925,37 @@ function renderCompanies() {
   });
 }
 
+function renderPortfolioCoverage() {
+  if (!els.portfolioCoverageSummary || !els.portfolioCoverageCount) return;
+  const portfolio = state.companies.filter((company) => company.portfolioStatus || company.universeType === "portfolio");
+  const coverage = state.companies.filter((company) => company.coverageStatus || company.universeType === "coverage");
+  els.portfolioCoverageCount.textContent = `${portfolio.length} / ${coverage.length}`;
+  const holdings = portfolio.slice(0, 5).map((company) => `
+    <button class="universe-row" data-company="${escapeHtml(company.id)}" type="button">
+      <strong>${escapeHtml(company.ticker || company.name)}</strong>
+      <span>${escapeHtml(company.positionWeight || company.positionShares || "持仓")}</span>
+    </button>
+  `).join("");
+  const covered = coverage
+    .filter((company) => !portfolio.some((row) => row.id === company.id))
+    .slice(0, 5)
+    .map((company) => `
+      <button class="universe-row" data-company="${escapeHtml(company.id)}" type="button">
+        <strong>${escapeHtml(company.ticker || company.name)}</strong>
+        <span>${escapeHtml(company.coveragePriority || inferIndustry(company))}</span>
+      </button>
+    `).join("");
+
+  els.portfolioCoverageSummary.innerHTML = `
+    <div class="universe-kpis">
+      <span><strong>${portfolio.length}</strong>Portfolio</span>
+      <span><strong>${coverage.length}</strong>Coverage</span>
+    </div>
+    ${portfolio.length ? `<p>当前持仓</p>${holdings}` : `<p>还没有 Portfolio。上传 Excel/CSV 后会显示在这里。</p>`}
+    ${covered.length ? `<p>覆盖公司</p>${covered}` : ""}
+  `;
+}
+
 function renderRailTabs() {
   document.querySelectorAll("[data-rail-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.railView === state.railView);
@@ -1968,6 +2025,7 @@ function render() {
   renderPmBoard();
   renderMarkets();
   renderCompanies();
+  renderPortfolioCoverage();
   renderEditor();
 }
 
@@ -2222,7 +2280,7 @@ function splitDelimitedLine(line, delimiter) {
   return cells;
 }
 
-function parseCompanyRows(text) {
+function parseCompanyRows(text, universeType = "") {
   const lines = String(text || "")
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -2232,7 +2290,7 @@ function parseCompanyRows(text) {
   const delimiter = lines.some((line) => line.includes("\t")) ? "\t" : ",";
   const rows = lines.map((line) => splitDelimitedLine(line, delimiter));
   const header = rows[0].map((cell) => cell.toLowerCase().replace(/\s+/g, ""));
-  const hasHeader = header.some((cell) => ["公司", "公司名称", "name", "company", "ticker", "代码", "股票代码", "cik", "主题", "topics", "行业", "industry", "sector", "分类"].includes(cell));
+  const hasHeader = header.some((cell) => ["公司", "公司名称", "name", "company", "ticker", "代码", "股票代码", "cik", "主题", "topics", "行业", "industry", "sector", "分类", "仓位", "weight", "持仓", "portfolio", "coverage", "覆盖", "优先级", "priority"].includes(cell));
   const body = hasHeader ? rows.slice(1) : rows;
 
   const findIndex = (names, fallback) => {
@@ -2241,19 +2299,28 @@ function parseCompanyRows(text) {
   };
   const nameIndex = hasHeader ? findIndex(["公司", "公司名称", "name", "company", "companyname"], 0) : 0;
   const tickerIndex = hasHeader ? findIndex(["代码", "股票代码", "ticker", "symbol"], 1) : 1;
-  const cikIndex = hasHeader ? findIndex(["cik", "sec", "seccik"], 2) : 2;
-  const topicsIndex = hasHeader ? findIndex(["主题", "topics", "tags", "关注点"], 3) : 3;
+  const cikIndex = hasHeader ? findIndex(["cik", "sec", "seccik"], -1) : 2;
+  const topicsIndex = hasHeader ? findIndex(["主题", "topics", "tags", "关注点"], -1) : 3;
   const industryIndex = hasHeader ? findIndex(["行业", "industry", "sector", "分类"], -1) : -1;
+  const universeIndex = hasHeader ? findIndex(["类型", "type", "list", "名单", "组合", "universe"], -1) : -1;
+  const weightIndex = hasHeader ? findIndex(["仓位", "权重", "weight", "position", "positionsize", "持仓比例"], -1) : -1;
+  const sharesIndex = hasHeader ? findIndex(["股数", "shares", "quantity", "qty"], -1) : -1;
+  const costIndex = hasHeader ? findIndex(["成本", "cost", "costbasis", "avgcost", "均价"], -1) : -1;
+  const priorityIndex = hasHeader ? findIndex(["优先级", "priority", "rank", "重要性"], -1) : -1;
+  const noteIndex = hasHeader ? findIndex(["备注", "notes", "note", "comment", "commentary"], -1) : -1;
 
   return body.map((row) => {
     const name = (row[nameIndex] || "").trim();
     const ticker = (row[tickerIndex] || "").trim().toUpperCase();
-    const cik = (row[cikIndex] || "").replace(/\D/g, "");
-    const topics = (row[topicsIndex] || "")
+    const cik = (cikIndex >= 0 ? row[cikIndex] || "" : "").replace(/\D/g, "");
+    const topics = (topicsIndex >= 0 ? row[topicsIndex] || "" : "")
       .split(/[;,，、]/)
       .map((topic) => topic.trim())
       .filter(Boolean);
     const industry = industryIndex >= 0 ? (row[industryIndex] || "").trim() : "";
+    const importedType = (row[universeIndex] || universeType || "").toLowerCase();
+    const isPortfolio = /portfolio|持仓|组合|holding|position/.test(importedType);
+    const isCoverage = /coverage|覆盖|研究|watch|watchlist/.test(importedType) || universeType === "coverage";
     if (!name && !ticker) return null;
     const id = (ticker || name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     return {
@@ -2263,6 +2330,14 @@ function parseCompanyRows(text) {
       cik,
       industry,
       topics,
+      universeType: isPortfolio ? "portfolio" : isCoverage ? "coverage" : universeType || "coverage",
+      portfolioStatus: isPortfolio ? "holding" : "",
+      coverageStatus: isCoverage || isPortfolio ? "covered" : "",
+      positionWeight: weightIndex >= 0 ? (row[weightIndex] || "").trim() : "",
+      positionShares: sharesIndex >= 0 ? (row[sharesIndex] || "").trim() : "",
+      costBasis: costIndex >= 0 ? (row[costIndex] || "").trim() : "",
+      coveragePriority: priorityIndex >= 0 ? (row[priorityIndex] || "").trim() : "",
+      universeNote: noteIndex >= 0 ? (row[noteIndex] || "").trim() : "",
       notes: ""
     };
   }).filter(Boolean);
@@ -2275,8 +2350,7 @@ function updateCompanyImportPreview() {
     : "等待导入";
 }
 
-function importCompanies() {
-  const rows = parseCompanyRows(els.companyImportText.value);
+function upsertCompanyRows(rows, { activateFirst = true } = {}) {
   if (!rows.length) return;
 
   const existing = new Map(state.companies.map((company) => [company.id, company]));
@@ -2288,7 +2362,15 @@ function importCompanies() {
         ticker: row.ticker || previous.ticker,
         cik: row.cik || previous.cik,
         industry: row.industry || previous.industry,
-        topics: row.topics.length ? row.topics : previous.topics
+        topics: row.topics.length ? row.topics : previous.topics,
+        universeType: row.universeType || previous.universeType,
+        portfolioStatus: row.portfolioStatus || previous.portfolioStatus,
+        coverageStatus: row.coverageStatus || previous.coverageStatus,
+        positionWeight: row.positionWeight || previous.positionWeight,
+        positionShares: row.positionShares || previous.positionShares,
+        costBasis: row.costBasis || previous.costBasis,
+        coveragePriority: row.coveragePriority || previous.coveragePriority,
+        universeNote: row.universeNote || previous.universeNote
       });
     } else {
       state.companies.push(row);
@@ -2296,16 +2378,39 @@ function importCompanies() {
     }
   });
 
-  state.activeCompanyId = rows[0].id;
+  if (activateFirst) state.activeCompanyId = rows[0].id;
   state.activeItemId = "";
   state.searchQuery = "";
-  els.companyImportText.value = "";
-  els.companyImportFile.value = "";
-  updateCompanyImportPreview();
   saveState();
   render();
   rows.forEach((company) => persistCompany(existing.get(company.id) || company));
   maybeAutoRefreshCompany(state.activeCompanyId);
+}
+
+function importCompanies() {
+  const rows = parseCompanyRows(els.companyImportText.value);
+  upsertCompanyRows(rows);
+  els.companyImportText.value = "";
+  els.companyImportFile.value = "";
+  updateCompanyImportPreview();
+}
+
+async function importUniverseFile(file, universeType) {
+  if (!file) return;
+  try {
+    const text = await readTableFile(file);
+    const rows = parseCompanyRows(text, universeType);
+    if (!rows.length) {
+      alert("没有识别到公司。请确认文件里至少有公司名或 ticker 列。");
+      return;
+    }
+    upsertCompanyRows(rows);
+  } catch (error) {
+    alert(`导入失败：${error.message || "文件无法读取"}`);
+  } finally {
+    if (universeType === "portfolio") els.portfolioUploadInput.value = "";
+    if (universeType === "coverage") els.coverageUploadInput.value = "";
+  }
 }
 
 function createCustomFolder() {
@@ -2511,6 +2616,11 @@ document.addEventListener("click", (event) => {
     render();
     return;
   }
+  const companyButton = event.target.closest("[data-company]");
+  if (companyButton) {
+    selectCompany(companyButton.dataset.company);
+    return;
+  }
   const back = event.target.closest("[data-folder-back]");
   if (back) {
     state.folderPath = [];
@@ -2670,9 +2780,11 @@ els.companyImportText.addEventListener("input", updateCompanyImportPreview);
 els.companyImportFile.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
-  els.companyImportText.value = await file.text();
+  els.companyImportText.value = await readTableFile(file);
   updateCompanyImportPreview();
 });
+els.portfolioUploadInput.addEventListener("change", (event) => importUniverseFile(event.target.files?.[0], "portfolio"));
+els.coverageUploadInput.addEventListener("change", (event) => importUniverseFile(event.target.files?.[0], "coverage"));
 els.confirmCompanyImport.addEventListener("click", importCompanies);
 els.confirmAddCompany.addEventListener("click", addCompany);
 els.askForm.addEventListener("submit", (event) => {

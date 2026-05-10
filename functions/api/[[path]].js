@@ -122,6 +122,45 @@ function toDbItem(item) {
   };
 }
 
+function toDbCompany(company, includeUniverse = true) {
+  const base = {
+    id: company.id,
+    name: company.name,
+    ticker: company.ticker || null,
+    cik: company.cik || null,
+    topics: company.topics || [],
+    notes: company.notes || "",
+    updated_at: new Date().toISOString()
+  };
+  if (!includeUniverse) return base;
+  return {
+    ...base,
+    industry: company.industry || null,
+    universe_type: company.universeType || null,
+    portfolio_status: company.portfolioStatus || null,
+    coverage_status: company.coverageStatus || null,
+    position_weight: company.positionWeight || null,
+    position_shares: company.positionShares || null,
+    cost_basis: company.costBasis || null,
+    coverage_priority: company.coveragePriority || null,
+    universe_note: company.universeNote || null
+  };
+}
+
+function fromDbCompany(company) {
+  return {
+    ...company,
+    universeType: company.universe_type || company.universeType || "",
+    portfolioStatus: company.portfolio_status || company.portfolioStatus || "",
+    coverageStatus: company.coverage_status || company.coverageStatus || "",
+    positionWeight: company.position_weight || company.positionWeight || "",
+    positionShares: company.position_shares || company.positionShares || "",
+    costBasis: company.cost_basis || company.costBasis || "",
+    coveragePriority: company.coverage_priority || company.coveragePriority || "",
+    universeNote: company.universe_note || company.universeNote || ""
+  };
+}
+
 function fromDbItem(item) {
   return {
     ...(item.raw || {}),
@@ -149,13 +188,13 @@ async function getBootstrap(env) {
   ]);
 
   if (!companies.length) {
-    await supabase(env, "companies?on_conflict=id", { method: "POST", body: JSON.stringify(defaultCompanies) });
+    await supabase(env, "companies?on_conflict=id", { method: "POST", body: JSON.stringify(defaultCompanies.map((company) => toDbCompany(company, false))) });
     await supabase(env, "intel_items?on_conflict=id", { method: "POST", body: JSON.stringify(defaultItems.map(toDbItem)) });
     return json({ companies: defaultCompanies, items: defaultItems, lastFetchedAt: new Date().toISOString(), backend: "supabase-seeded" });
   }
 
   return json({
-    companies,
+    companies: companies.map(fromDbCompany),
     items: items.map(fromDbItem),
     lastFetchedAt: new Date().toISOString(),
     backend: "supabase"
@@ -167,11 +206,19 @@ async function upsertCompany(context) {
   if (!company?.id || !company?.name) return json({ error: "Missing company id or name" }, 400);
   if (!hasSupabase(context.env)) return json({ company, backend: "local-fallback" });
 
-  const rows = await supabase(context.env, "companies?on_conflict=id", {
-    method: "POST",
-    body: JSON.stringify([{ ...company, updated_at: new Date().toISOString() }])
-  });
-  return json({ company: rows?.[0] || company, backend: "supabase" });
+  let rows;
+  try {
+    rows = await supabase(context.env, "companies?on_conflict=id", {
+      method: "POST",
+      body: JSON.stringify([toDbCompany(company)])
+    });
+  } catch (error) {
+    rows = await supabase(context.env, "companies?on_conflict=id", {
+      method: "POST",
+      body: JSON.stringify([toDbCompany(company, false)])
+    });
+  }
+  return json({ company: rows?.[0] ? fromDbCompany(rows[0]) : company, backend: "supabase" });
 }
 
 async function upsertItems(context) {

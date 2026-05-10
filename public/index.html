@@ -180,6 +180,26 @@
           <div id="companyList" class="company-pills"></div>
         </section>
 
+        <section class="mini-card universe-card">
+          <div class="drawer-title">
+            <strong>Portfolio / Coverage</strong>
+            <span id="portfolioCoverageCount">0 / 0</span>
+          </div>
+          <div class="universe-upload-grid">
+            <label class="universe-upload">
+              <input id="portfolioUploadInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" />
+              <strong>上传 Portfolio</strong>
+              <small>持仓公司、仓位、成本、备注</small>
+            </label>
+            <label class="universe-upload">
+              <input id="coverageUploadInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" />
+              <strong>上传 Coverage</strong>
+              <small>覆盖公司、行业、主题、优先级</small>
+            </label>
+          </div>
+          <div id="portfolioCoverageSummary" class="universe-summary"></div>
+        </section>
+
         <section class="mini-card">
           <div class="drawer-title">
             <strong>当前公司</strong>
@@ -272,11 +292,11 @@
     <dialog id="companyImportDialog">
       <form method="dialog" class="dialog-card import-dialog">
         <h3>批量导入公司</h3>
-        <p class="dialog-help">从 Excel 复制表格后直接粘贴，或上传 CSV/TSV。支持列：公司、代码、CIK、主题。</p>
+        <p class="dialog-help">从 Excel 复制表格后直接粘贴，或上传 Excel/CSV/TSV。支持列：公司、代码、CIK、主题、行业、仓位、优先级。</p>
         <label class="import-box">
-          <input id="companyImportFile" type="file" accept=".csv,.tsv,.txt" />
-          <span>上传 CSV / TSV</span>
-          <small>Excel 另存为 CSV 后可直接导入</small>
+          <input id="companyImportFile" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" />
+          <span>上传 Excel / CSV / TSV</span>
+          <small>会读取第一个 sheet；Portfolio 和 Coverage 也可以用右侧专门入口</small>
         </label>
         <textarea id="companyImportText" placeholder="公司	代码	CIK	主题&#10;Meta Platforms	META	0001326801	AI, Ads&#10;Netflix	NFLX	0001065280	Streaming"></textarea>
         <div id="companyImportPreview" class="import-preview">等待导入</div>

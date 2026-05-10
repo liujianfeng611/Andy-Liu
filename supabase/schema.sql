@@ -7,9 +7,28 @@ create table if not exists public.companies (
   cik text,
   topics text[] not null default '{}',
   notes text not null default '',
+  industry text,
+  universe_type text,
+  portfolio_status text,
+  coverage_status text,
+  position_weight text,
+  position_shares text,
+  cost_basis text,
+  coverage_priority text,
+  universe_note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.companies add column if not exists industry text;
+alter table public.companies add column if not exists universe_type text;
+alter table public.companies add column if not exists portfolio_status text;
+alter table public.companies add column if not exists coverage_status text;
+alter table public.companies add column if not exists position_weight text;
+alter table public.companies add column if not exists position_shares text;
+alter table public.companies add column if not exists cost_basis text;
+alter table public.companies add column if not exists coverage_priority text;
+alter table public.companies add column if not exists universe_note text;
 
 create table if not exists public.intel_items (
   id text primary key,
