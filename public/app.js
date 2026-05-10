@@ -9,6 +9,9 @@ const defaultState = {
   noteReaderTab: "transcript",
   readerMode: "company",
   railView: "notes",
+  dailyNewsTab: "sources",
+  dailyNewsSources: [],
+  dailyNewsItems: [],
   folderPath: [],
   customFolders: [],
   companies: [
@@ -127,6 +130,8 @@ const autoRefreshingCompanies = new Set();
 let noteProcessorBusy = false;
 let noteProcessorStatus = "";
 let ideaSaveTimer = null;
+let dailyNewsBusy = false;
+let dailyNewsStatus = "";
 
 const els = {
   noteStream: document.querySelector("#noteStream"),
@@ -139,6 +144,7 @@ const els = {
   researchQueue: document.querySelector("#researchQueue"),
   agentTabs: document.querySelector("#agentTabs"),
   folderBoard: document.querySelector("#folderBoard"),
+  dailyNewsBoard: document.querySelector("#dailyNewsBoard"),
   companyWorkspace: document.querySelector("#companyWorkspace"),
   companyUploadInput: document.querySelector("#companyUploadInput"),
   folderUploadInput: document.querySelector("#folderUploadInput"),
@@ -699,6 +705,14 @@ function customFolders() {
   return Array.isArray(state.customFolders) ? state.customFolders : [];
 }
 
+function dailyNewsSources() {
+  return Array.isArray(state.dailyNewsSources) ? state.dailyNewsSources : [];
+}
+
+function dailyNewsItems() {
+  return Array.isArray(state.dailyNewsItems) ? state.dailyNewsItems : [];
+}
+
 function childCustomFolders(parentId = "") {
   return customFolders()
     .filter((folder) => (folder.parentId || "") === (parentId || ""))
@@ -1050,6 +1064,88 @@ function renderFolderBoard() {
   els.folderBoard.innerHTML = `
     <button class="folder-board-back" data-folder-back type="button">← 云端文件夹 / ${escapeHtml(selectedIndustry)}</button>
     <div class="folder-card-grid-main">${cards || `<div class="empty-list">${escapeHtml(selectedIndustry)} 下面还没有公司文件夹。</div>`}</div>
+  `;
+}
+
+function renderDailyNewsBoard() {
+  const isDaily = state.railView === "daily";
+  els.dailyNewsBoard.hidden = !isDaily;
+  document.body.classList.toggle("daily-mode", isDaily);
+  if (!isDaily) {
+    els.dailyNewsBoard.innerHTML = "";
+    return;
+  }
+
+  const activeTab = state.dailyNewsTab === "generate" ? "generate" : "sources";
+  const sources = dailyNewsSources();
+  const rows = dailyNewsItems();
+  const sourceCards = sources.map((source) => `
+    <article class="daily-source-card">
+      <div>
+        <strong>${escapeHtml(source.name || "未命名新闻源")}</strong>
+        <span>${escapeHtml(source.url || "")}</span>
+      </div>
+      <button data-delete-news-source="${escapeHtml(source.id)}" type="button">删除</button>
+    </article>
+  `).join("");
+  const resultCards = rows.map((item) => {
+    const link = materialUrl(item);
+    return `
+      <article class="daily-news-card">
+        <div class="daily-news-card-head">
+          <span>${escapeHtml(item.source || "NEWS")}</span>
+          <em>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</em>
+        </div>
+        <h3>${escapeHtml(readableText(item.title || "未命名新闻"))}</h3>
+        <p>${escapeHtml(readableText(item.summary || item.sourceText || ""))}</p>
+        <div class="daily-news-card-actions">
+          ${link ? `<button data-open-url="${escapeHtml(link)}" type="button">打开原文</button>` : ""}
+          <button data-daily-item-id="${escapeHtml(item.id)}" type="button">作为笔记打开</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  els.dailyNewsBoard.innerHTML = `
+    <div class="daily-news-top">
+      <div>
+        <span>Daily News</span>
+        <h2>今日新闻</h2>
+        <p>先维护你常看的新闻源，再一键抓取并沉淀成今天的新闻流。</p>
+      </div>
+      <nav class="daily-news-tabs" aria-label="今日新闻">
+        <button class="${activeTab === "sources" ? "active" : ""}" data-daily-news-tab="sources" type="button">新闻源</button>
+        <button class="${activeTab === "generate" ? "active" : ""}" data-daily-news-tab="generate" type="button">生成今日新闻</button>
+      </nav>
+    </div>
+
+    ${activeTab === "sources" ? `
+      <section class="daily-news-panel">
+        <div class="daily-source-form">
+          <input id="dailyNewsSourceName" placeholder="来源名称，例如 The Verge / Bloomberg AI" />
+          <input id="dailyNewsSourceUrl" placeholder="https://example.com/news 或 RSS / 网页链接" />
+          <button data-add-news-source type="button">添加新闻源</button>
+        </div>
+        <div class="daily-source-list">
+          ${sourceCards || `<div class="empty-list">还没有新闻源。把你每天要看的网页、新闻列表或 RSS 链接加进来。</div>`}
+        </div>
+      </section>
+    ` : `
+      <section class="daily-news-panel">
+        <div class="daily-news-generate">
+          <div>
+            <strong>${sources.length ? `${sources.length} 个新闻源已就绪` : "还没有新闻源"}</strong>
+            <span>${escapeHtml(dailyNewsStatus || "点击后会逐个抓取新闻源，并把结果保存到今日新闻。")}</span>
+          </div>
+          <button data-generate-daily-news type="button" ${dailyNewsBusy || !sources.length ? "disabled" : ""}>
+            ${dailyNewsBusy ? "生成中..." : "生成今日新闻"}
+          </button>
+        </div>
+        <div class="daily-news-results">
+          ${resultCards || `<div class="empty-list">生成后，抓取到的新闻会显示在这里。</div>`}
+        </div>
+      </section>
+    `}
   `;
 }
 
@@ -1815,10 +1911,11 @@ function renderCompanyWorkspace() {
   const recentNotes = rows.slice(0, 12);
   const ctx = { company, rows, localDocs, evidence, price, industry, viewItems, selected, selectedSummary, peerCompanies, recentNotes };
 
-  els.companyWorkspace.hidden = state.railView === "folders";
-  document.body.classList.toggle("company-mode", state.railView !== "folders");
+  const isStandaloneBoard = state.railView === "folders" || state.railView === "daily";
+  els.companyWorkspace.hidden = isStandaloneBoard;
+  document.body.classList.toggle("company-mode", !isStandaloneBoard);
   document.body.classList.remove("note-reader-mode");
-  if (state.railView === "folders") {
+  if (isStandaloneBoard) {
     els.companyWorkspace.innerHTML = "";
     return;
   }
@@ -2181,6 +2278,7 @@ function render() {
   renderIntakeQueue();
   renderNotes();
   renderFolderBoard();
+  renderDailyNewsBoard();
   renderCompanyWorkspace();
   renderBrief();
   renderWorkflow();
@@ -2690,6 +2788,117 @@ async function saveWebUrlToCompany(companyId = activeCompany().id) {
   }
 }
 
+function addDailyNewsSource() {
+  const nameInput = document.querySelector("#dailyNewsSourceName");
+  const urlInput = document.querySelector("#dailyNewsSourceUrl");
+  const rawUrl = urlInput?.value.trim() || "";
+  if (!rawUrl) return;
+  let url = rawUrl;
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    alert("这个新闻源链接看起来不完整，请输入 https:// 开头的网址。");
+    return;
+  }
+  const source = {
+    id: `news-source-${Date.now().toString(36)}`,
+    name: nameInput?.value.trim() || host,
+    url,
+    createdAt: new Date().toISOString()
+  };
+  const exists = dailyNewsSources().some((row) => row.url === source.url);
+  if (exists) {
+    alert("这个新闻源已经添加过了。");
+    return;
+  }
+  state.dailyNewsSources = [...dailyNewsSources(), source];
+  state.dailyNewsTab = "sources";
+  saveState();
+  render();
+}
+
+function deleteDailyNewsSource(sourceId) {
+  const source = dailyNewsSources().find((row) => row.id === sourceId);
+  if (!source) return;
+  const confirmed = confirm(`删除新闻源「${source.name || source.url}」？`);
+  if (!confirmed) return;
+  state.dailyNewsSources = dailyNewsSources().filter((row) => row.id !== sourceId);
+  saveState();
+  render();
+}
+
+function newsItemFromFetch(source, data, now) {
+  const text = cleanTranscriptText(data.text || "");
+  const summary = (text || data.description || data.title || source.url).replace(/\s+/g, " ").trim().slice(0, 360);
+  return {
+    id: `daily-news-${source.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    companyId: null,
+    type: "open",
+    folderId: "daily-news",
+    tags: ["今日新闻", "新闻源", source.name || "NEWS"],
+    title: readableText(data.title || source.name || source.url),
+    source: source.name || data.source || "NEWS",
+    url: data.url || source.url,
+    sourceText: text || summary,
+    viewText: "",
+    createdAt: now,
+    publishedAt: now,
+    summary
+  };
+}
+
+async function generateDailyNews() {
+  const sources = dailyNewsSources();
+  if (!sources.length || dailyNewsBusy) return;
+  dailyNewsBusy = true;
+  dailyNewsStatus = `正在抓取 ${sources.length} 个新闻源...`;
+  render();
+
+  const now = new Date().toISOString();
+  const results = [];
+  for (const source of sources) {
+    dailyNewsStatus = `正在抓取：${source.name || source.url}`;
+    render();
+    try {
+      const data = await api("fetch-url", {
+        method: "POST",
+        body: JSON.stringify({ url: source.url })
+      });
+      results.push(newsItemFromFetch(source, data, now));
+    } catch (error) {
+      results.push({
+        id: `daily-news-error-${source.id}-${Date.now().toString(36)}`,
+        companyId: null,
+        type: "open",
+        folderId: "daily-news",
+        tags: ["今日新闻", "抓取失败", source.name || "NEWS"],
+        title: `${source.name || source.url} 抓取失败`,
+        source: source.name || "NEWS",
+        url: source.url,
+        sourceText: `抓取失败：${error.message || "网站暂时无法读取"}`,
+        viewText: "",
+        createdAt: now,
+        publishedAt: now,
+        summary: error.message || "网站暂时无法读取"
+      });
+    }
+  }
+
+  const known = new Set(state.items.map((item) => item.id));
+  const fresh = results.filter((item) => item.id && !known.has(item.id));
+  state.items = [...fresh, ...state.items].slice(0, 600);
+  state.dailyNewsItems = fresh;
+  state.lastFetchedAt = new Date().toISOString();
+  state.dailyNewsTab = "generate";
+  dailyNewsStatus = `已生成 ${fresh.length} 条今日新闻。`;
+  dailyNewsBusy = false;
+  saveState();
+  render();
+  persistItems(fresh);
+}
+
 async function uploadFilesToCustomFolder(files, folderId) {
   const folder = customFolders().find((row) => row.id === folderId);
   if (!folder) return;
@@ -2894,6 +3103,18 @@ document.addEventListener("click", (event) => {
     deleteItem(deleteButton.dataset.deleteItem);
     return;
   }
+  const dailyItem = event.target.closest("[data-daily-item-id]");
+  if (dailyItem) {
+    const item = state.items.find((row) => row.id === dailyItem.dataset.dailyItemId);
+    if (item?.companyId) state.activeCompanyId = item.companyId;
+    state.activeItemId = dailyItem.dataset.dailyItemId;
+    state.readerMode = "note";
+    state.noteReaderTab = "transcript";
+    state.railView = "notes";
+    saveState();
+    render();
+    return;
+  }
   const noteReaderTab = event.target.closest("[data-note-reader-tab]");
   if (noteReaderTab) {
     if (document.querySelector("[data-note-idea-input]")) saveCurrentNoteIdea();
@@ -2966,6 +3187,29 @@ document.addEventListener("click", (event) => {
     saveWebUrlToCustomFolder(saveWebUrl.dataset.saveWebUrl);
     return;
   }
+  const dailyNewsTab = event.target.closest("[data-daily-news-tab]");
+  if (dailyNewsTab) {
+    state.dailyNewsTab = dailyNewsTab.dataset.dailyNewsTab;
+    state.railView = "daily";
+    saveState();
+    render();
+    return;
+  }
+  const addNewsSource = event.target.closest("[data-add-news-source]");
+  if (addNewsSource) {
+    addDailyNewsSource();
+    return;
+  }
+  const deleteNewsSource = event.target.closest("[data-delete-news-source]");
+  if (deleteNewsSource) {
+    deleteDailyNewsSource(deleteNewsSource.dataset.deleteNewsSource);
+    return;
+  }
+  const generateNews = event.target.closest("[data-generate-daily-news]");
+  if (generateNews) {
+    generateDailyNews();
+    return;
+  }
   const refresh = event.target.closest("[data-workspace-refresh]");
   if (refresh) {
     refreshOpenInfo();
@@ -3027,6 +3271,12 @@ document.addEventListener("input", (event) => {
   window.clearTimeout(ideaSaveTimer);
   ideaSaveTimer = window.setTimeout(() => saveCurrentNoteIdea(), 1200);
 });
+document.addEventListener("keydown", (event) => {
+  const sourceInput = event.target.closest("#dailyNewsSourceName, #dailyNewsSourceUrl");
+  if (!sourceInput || event.key !== "Enter") return;
+  event.preventDefault();
+  addDailyNewsSource();
+});
 els.globalUploadBtn.addEventListener("click", () => {
   const selected = Array.isArray(state.folderPath) ? state.folderPath[0] || "" : "";
   const customId = selected.startsWith("custom:") ? selected.slice(7) : "";
@@ -3054,6 +3304,7 @@ document.querySelectorAll("[data-rail-view]").forEach((button) => {
     state.railView = button.dataset.railView;
     state.searchQuery = "";
     if (state.railView === "folders") state.folderPath = [];
+    if (state.railView === "daily") state.dailyNewsTab = state.dailyNewsTab || "sources";
     saveState();
     render();
   });
