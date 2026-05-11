@@ -14,6 +14,7 @@ const defaultState = {
   dailyNewsSources: [],
   dailyNewsItems: [],
   dailyNewsCategorySummaries: {},
+  teamFiles: [],
   folderPath: [],
   customFolders: [],
   companies: [
@@ -296,10 +297,12 @@ const els = {
   themeToggleBtn: document.querySelector("#themeToggleBtn"),
   folderBoard: document.querySelector("#folderBoard"),
   dailyNewsBoard: document.querySelector("#dailyNewsBoard"),
+  teamBoard: document.querySelector("#teamBoard"),
   companyWorkspace: document.querySelector("#companyWorkspace"),
   companyUploadInput: document.querySelector("#companyUploadInput"),
   folderUploadInput: document.querySelector("#folderUploadInput"),
   transcriptFileInput: document.querySelector("#transcriptFileInput"),
+  teamUploadInput: document.querySelector("#teamUploadInput"),
   regionalMarkets: document.querySelector("#regionalMarkets"),
   assetMarkets: document.querySelector("#assetMarkets"),
   companyList: document.querySelector("#companyList"),
@@ -942,6 +945,17 @@ function companyOpenNewsCount(companyId) {
     .length;
 }
 
+function teamFiles() {
+  return Array.isArray(state.teamFiles) ? state.teamFiles : [];
+}
+
+function formatFileSize(bytes) {
+  const value = Number(bytes || 0);
+  if (!value) return "0 KB";
+  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
 function formatTime(value) {
   const date = new Date(value || Date.now());
   if (Number.isNaN(date.getTime())) return "刚刚";
@@ -1044,6 +1058,11 @@ function addItems(items) {
 }
 
 function renderNotes() {
+  if (state.railView === "team") {
+    renderTeamRail();
+    return;
+  }
+
   if (state.railView === "folders") {
     renderCloudFolders();
     return;
@@ -1066,6 +1085,24 @@ function renderNotes() {
     </article>
   `;
   }).join("") || `<div class="empty-list">${emptyText}</div>`;
+}
+
+function renderTeamRail() {
+  const files = teamFiles();
+  els.noteStream.innerHTML = `
+    <div class="team-rail-empty">${files.length ? `${files.length} 份团队 Port 文件` : "还没有团队 Port 数据"}</div>
+    <button class="team-upload-rail" data-upload-team-file type="button">⇧ 上传 xlsx</button>
+    ${files.length ? `
+      <div class="team-file-list">
+        ${files.slice(0, 20).map((file) => `
+          <article class="team-file-row">
+            <strong>${escapeHtml(file.name)}</strong>
+            <span>${escapeHtml(formatTime(file.uploadedAt))} · ${escapeHtml(formatFileSize(file.size))}</span>
+          </article>
+        `).join("")}
+      </div>
+    ` : ""}
+  `;
 }
 
 function renderCloudFolders() {
@@ -1515,6 +1552,48 @@ function renderDailyNewsBoard() {
         </div>
       </section>
     `}
+  `;
+}
+
+function renderTeamBoard() {
+  const isTeam = state.railView === "team";
+  els.teamBoard.hidden = !isTeam;
+  document.body.classList.toggle("team-mode", isTeam);
+  if (!isTeam) {
+    els.teamBoard.innerHTML = "";
+    return;
+  }
+
+  const files = teamFiles();
+  const fileRows = files.map((file) => `
+    <article class="team-file-card">
+      <div>
+        <strong>${escapeHtml(file.name)}</strong>
+        <span>${escapeHtml(formatTime(file.uploadedAt))} · ${escapeHtml(formatFileSize(file.size))}</span>
+      </div>
+      <em>${escapeHtml(file.kind || "FILE")}</em>
+    </article>
+  `).join("");
+
+  els.teamBoard.innerHTML = `
+    <header class="team-board-head">
+      <div>
+        <span>♙</span>
+        <strong>团队 Port</strong>
+      </div>
+      <button data-upload-team-file type="button">⇧ 上传</button>
+    </header>
+    <section class="team-empty-stage">
+      ${files.length ? `
+        <div class="team-file-grid">${fileRows}</div>
+      ` : `
+        <div class="team-empty-center">
+          <div class="team-empty-icon">♙</div>
+          <p>还没有团队 Port 数据</p>
+          <button data-upload-team-file type="button">⇧ 上传第一份</button>
+        </div>
+      `}
+    </section>
   `;
 }
 
@@ -2389,7 +2468,7 @@ function renderCompanyWorkspace() {
   const recentNotes = rows.slice(0, 12);
   const ctx = { company, rows, localDocs, evidence, price, industry, viewItems, selected, selectedSummary, peerCompanies, recentNotes };
 
-  const isStandaloneBoard = state.railView === "folders" || state.railView === "daily";
+  const isStandaloneBoard = state.railView === "folders" || state.railView === "daily" || state.railView === "team";
   els.companyWorkspace.hidden = isStandaloneBoard;
   document.body.classList.toggle("company-mode", !isStandaloneBoard);
   document.body.classList.remove("note-reader-mode");
@@ -2806,6 +2885,7 @@ function render() {
   renderNotes();
   renderFolderBoard();
   renderDailyNewsBoard();
+  renderTeamBoard();
   renderCompanyWorkspace();
   renderBrief();
   renderWorkflow();
@@ -3199,6 +3279,33 @@ async function importUniverseFile(file, universeType) {
     if (universeType === "portfolio") els.portfolioUploadInput.value = "";
     if (universeType === "coverage") els.coverageUploadInput.value = "";
   }
+}
+
+async function uploadTeamFiles(files) {
+  const rows = [];
+  for (const file of [...(files || [])]) {
+    let upload = { text: "", readable: false, message: "" };
+    try {
+      upload = await readUploadText(file);
+    } catch (error) {
+      upload = { text: "", readable: false, message: `${file.name} 读取失败：${error.message || "无法解析文件"}` };
+    }
+    rows.push({
+      id: `team-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      name: file.name,
+      size: file.size || 0,
+      kind: fileKind(file).toUpperCase(),
+      uploadedAt: new Date().toISOString(),
+      readable: upload.readable,
+      preview: (upload.text || upload.message || "").slice(0, 8000)
+    });
+  }
+  if (!rows.length) return;
+  state.teamFiles = [...rows, ...teamFiles()].slice(0, 80);
+  state.railView = "team";
+  els.teamUploadInput.value = "";
+  saveState();
+  render();
 }
 
 function createCustomFolder(parentId = "") {
@@ -3909,6 +4016,11 @@ document.addEventListener("click", (event) => {
     processCurrentNote("portfolio");
     return;
   }
+  const uploadTeamFile = event.target.closest("[data-upload-team-file]");
+  if (uploadTeamFile) {
+    els.teamUploadInput.click();
+    return;
+  }
   const saveIdea = event.target.closest("[data-save-note-idea]");
   if (saveIdea) {
     saveCurrentNoteIdea({ renderAfter: true });
@@ -3969,6 +4081,7 @@ document.querySelectorAll("[data-rail-view]").forEach((button) => {
     state.searchQuery = "";
     if (state.railView === "folders") state.folderPath = [];
     if (state.railView === "daily") state.dailyNewsTab = state.dailyNewsTab || "sources";
+    if (state.railView === "team") state.readerMode = "team";
     saveState();
     render();
   });
@@ -4020,6 +4133,7 @@ els.companyUploadInput.addEventListener("change", (event) => importFiles(event.t
 els.fileInput.addEventListener("change", (event) => importFiles(event.target.files));
 els.folderUploadInput.addEventListener("change", (event) => uploadFilesToCustomFolder(event.target.files, event.target.dataset.folderId));
 els.transcriptFileInput.addEventListener("change", (event) => attachTranscriptFile(event.target.files));
+els.teamUploadInput.addEventListener("change", (event) => uploadTeamFiles(event.target.files));
 document.addEventListener("change", (event) => {
   const modelSelect = event.target.closest("#processorModelSelect");
   if (!modelSelect) return;
