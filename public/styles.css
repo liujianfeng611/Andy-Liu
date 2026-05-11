@@ -398,7 +398,7 @@ body.team-mode .terminal-shell {
 }
 
 .note-item.uploaded-note {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   border-radius: 0;
   padding: 0;
 }
@@ -410,12 +410,25 @@ body.team-mode .terminal-shell {
 
 .note-select {
   display: grid;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
   border: 0;
   background: transparent;
-  padding: 16px 22px;
+  padding: 15px 22px;
   text-align: left;
+}
+
+.note-star {
+  align-self: center;
+  justify-self: end;
+  border: 0;
+  background: transparent;
+  color: #f6a21a;
+  min-height: 28px;
+  padding: 0 4px;
+  font-size: 15px;
+  font-weight: 900;
+  opacity: 0;
 }
 
 .note-delete {
@@ -434,7 +447,9 @@ body.team-mode .terminal-shell {
 }
 
 .note-item:hover .note-delete,
-.note-item.active .note-delete {
+.note-item.active .note-delete,
+.note-item:hover .note-star,
+.note-item.active .note-star {
   opacity: 1;
 }
 
@@ -509,7 +524,10 @@ body.team-mode .terminal-shell {
 }
 
 .note-meta {
-  display: block;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.2;
@@ -2122,6 +2140,129 @@ body.note-reader-mode .main-stage {
   line-height: 1.5;
 }
 
+.note-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+
+.note-workbench-main {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.note-read-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.note-read-toolbar button,
+.note-qa-panel button,
+.note-qa-foot select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #171513;
+  color: #d8d0ca;
+  min-height: 32px;
+  padding: 0 11px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.note-read-toolbar button:last-child {
+  border-color: #145f83;
+  background: #0e3b52;
+  color: #8dddff;
+}
+
+.note-qa-panel {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #090908;
+  padding: 14px;
+}
+
+.note-qa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.note-qa-head strong {
+  color: #eee8df;
+  font-size: 15px;
+}
+
+.note-qa-head button {
+  min-width: 30px;
+  padding: 0;
+}
+
+.note-qa-mode,
+.note-qa-current {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #120f0e;
+  color: var(--muted);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.note-qa-current {
+  color: #ded8d1;
+}
+
+.note-qa-prompts {
+  display: grid;
+  gap: 8px;
+}
+
+.note-qa-prompts button {
+  justify-content: flex-start;
+  text-align: left;
+  white-space: normal;
+}
+
+.note-qa-panel textarea {
+  min-height: 128px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #050505;
+  color: #eee8df;
+  padding: 12px;
+  font: 13px/1.55 inherit;
+}
+
+.note-qa-foot {
+  display: grid;
+  gap: 8px;
+}
+
+.note-qa-foot label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.note-qa-foot button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .processor-panel {
   display: grid;
   gap: 14px;
@@ -3323,6 +3464,39 @@ body.light-theme .processor-controls button {
   border-color: #7dd3fc;
   background: #e0f2fe;
   color: #0369a1;
+}
+
+body.light-theme .note-read-toolbar button,
+body.light-theme .note-qa-panel button,
+body.light-theme .note-qa-foot select,
+body.light-theme .note-qa-mode,
+body.light-theme .note-qa-current {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #514b45;
+}
+
+body.light-theme .note-read-toolbar button:last-child {
+  border-color: #7dd3fc;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+body.light-theme .note-qa-panel,
+body.light-theme .note-qa-panel textarea {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #2d2925;
+}
+
+body.light-theme .note-qa-head strong,
+body.light-theme .note-qa-current {
+  color: #2d2925;
+}
+
+body.light-theme .note-qa-mode,
+body.light-theme .note-qa-foot label {
+  color: #736a62;
 }
 
 body.light-theme .processor-head > span,
@@ -5159,6 +5333,13 @@ menu {
     justify-self: start;
   }
 
+  .note-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .note-qa-panel {
+    position: static;
+  }
 }
 
 @media (max-width: 900px) {

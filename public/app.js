@@ -6,7 +6,7 @@ const defaultState = {
   searchQuery: "",
   editorTab: "source",
   companyWorkspaceTab: "home",
-  noteReaderTab: "transcript",
+  noteReaderTab: "analyst",
   readerMode: "company",
   railView: "notes",
   themeMode: "dark",
@@ -857,6 +857,26 @@ function noteTypeLabel(item) {
   return item?.type || "笔记";
 }
 
+function noteStatusLabel(item) {
+  if (materialPortfolioImpact(item)) return "待归档";
+  if (materialView(item)) return "待数字";
+  if (materialTranslation(item)) return "待分析";
+  if (materialTranscript(item)) return "待处理";
+  return "待转录";
+}
+
+function notePrimaryTag(item) {
+  const company = itemCompany(item);
+  return company?.ticker || item?.source || materialTags(item)[0] || "NOTE";
+}
+
+function noteArchiveLabel(item) {
+  const company = itemCompany(item);
+  if (company?.name) return `已归档到 ${company.ticker || company.name}`;
+  const folder = item?.folderName || item?.folderId;
+  return folder ? `已归档到 ${folder}` : "归档";
+}
+
 function companyCloudItems(companyId) {
   return state.items
     .filter(isVisibleMaterial)
@@ -1076,12 +1096,21 @@ function renderNotes() {
     : `还没有上传笔记。可以在公司页点击“添加材料”上传文件，或在右侧资料入口新增材料。`;
 
   els.noteStream.innerHTML = rows.map((item) => {
+    const tags = [
+      notePrimaryTag(item),
+      noteTypeLabel(item),
+      ...materialTags(item).filter((tag) => tag !== notePrimaryTag(item) && tag !== noteTypeLabel(item))
+    ].filter(Boolean).slice(0, 2);
     return `
     <article class="note-item uploaded-note ${item.id === selectedId ? "active" : ""}">
       <button class="note-select" data-item-id="${escapeHtml(item.id)}" type="button">
         <div class="note-title">${escapeHtml(readableText(item.title))}</div>
-        <div class="note-meta">${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</div>
+        <div class="note-meta">
+          <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
+          ${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
+        </div>
       </button>
+      <button class="note-star" type="button" title="标记">☆</button>
       <button class="note-delete" data-delete-item="${escapeHtml(item.id)}" type="button" title="删除笔记">删除</button>
     </article>
   `;
@@ -1881,6 +1910,57 @@ function renderNoteReaderTabs(activeTab) {
   `).join("");
 }
 
+function renderNoteQaPanel(item) {
+  const title = readableText(item?.title || "当前笔记");
+  const prompts = [
+    "总结一下笔记",
+    "提到了哪些关于 AI 的内容",
+    "有哪些重要数字",
+    "做多/做空哪个股票"
+  ];
+  return `
+    <aside class="note-qa-panel">
+      <div class="note-qa-head">
+        <strong>当前笔记问答</strong>
+        <button type="button" title="关闭">×</button>
+      </div>
+      <div class="note-qa-mode">单篇笔记模式</div>
+      <div class="note-qa-current">${escapeHtml(title)}</div>
+      <div class="note-qa-prompts">
+        ${prompts.map((prompt) => `<button type="button">${escapeHtml(prompt)}</button>`).join("")}
+      </div>
+      <textarea placeholder="关于「${escapeHtml(title)}」的问题..."></textarea>
+      <div class="note-qa-foot">
+        <select>
+          ${noteProcessorModels.map((model, index) => `<option ${index === 0 ? "selected" : ""}>${escapeHtml(model.label)}</option>`).join("")}
+        </select>
+        <label><input type="checkbox" /> 联网</label>
+        <button type="button" disabled>发送</button>
+      </div>
+    </aside>
+  `;
+}
+
+function renderNoteWorkbench(item, mainHtml, options = {}) {
+  const tools = options.tools === false ? "" : `
+    <div class="note-read-toolbar">
+      <button type="button">复制</button>
+      <button type="button">PDF</button>
+      <button type="button">对比</button>
+      <button data-analyze-note type="button">重新分析</button>
+    </div>
+  `;
+  return `
+    <section class="note-workbench">
+      <div class="note-workbench-main">
+        ${tools}
+        ${mainHtml}
+      </div>
+      ${renderNoteQaPanel(item)}
+    </section>
+  `;
+}
+
 function evidenceBuckets(rows) {
   const labels = ["需求 / 增长", "涨价 / 变现", "利润率 / 经营杠杆", "竞争 / 份额", "反证 / 风险", "催化剂"];
   return labels.map((label) => ({
@@ -2290,19 +2370,19 @@ function renderNoteReaderBody(item, activeTab) {
   const fallback = "还没有 Transcript 内容。请选择这条笔记对应的原文件，系统会读取 PDF / Word / 文本内容并保存到这里。";
   if (activeTab === "transcript") {
     if (needsFile) {
-      return `
+      return renderNoteWorkbench(item, `
         <section class="note-reader-placeholder transcript-import-box">
           <strong>读取文件内容</strong>
           <p>${escapeHtml(storedTextLooksLikeFileBytes(item) ? "正在尝试从已保存文件数据中恢复正文；恢复成功后会自动显示在这里。" : transcript || fallback)}</p>
           <small>新上传的 PDF / Word 会自动读取正文。旧笔记如果当时没有保存原文件内容，浏览器无法仅凭标题重新读取电脑里的文件。</small>
         </section>
-      `;
+      `, { tools: false });
     }
-    return `
+    return renderNoteWorkbench(item, `
       <article class="note-reader-transcript">
         ${escapeHtml(transcript).split("\n").map((line) => `<p>${line || "&nbsp;"}</p>`).join("")}
       </article>
-    `;
+    `);
   }
 
   if (activeTab === "analyst") {
@@ -2322,13 +2402,13 @@ function renderNoteReaderBody(item, activeTab) {
   }
 
   const tabLabel = noteReaderTabs.find(([id]) => id === activeTab)?.[1] || "分析";
-  return `
+  return renderNoteWorkbench(item, `
     <section class="note-reader-placeholder">
       <strong>${escapeHtml(tabLabel)}</strong>
       <p>这个视图会基于当前笔记生成结构化分析。现在先把原文放在 Transcript，便于你先阅读和归档。</p>
       <button data-note-reader-tab="transcript" type="button">查看 Transcript</button>
     </section>
-  `;
+  `, { tools: false });
 }
 
 function renderNoteIdea(item) {
@@ -2437,7 +2517,7 @@ function renderNoteAnalyst(item) {
   const selected = noteProcessorModels.find((model) => model.id === currentModel) || noteProcessorModels[0];
   const processed = materialView(item);
   const source = originalNoteText(item);
-  return `
+  return renderNoteWorkbench(item, `
     <section class="processor-panel">
       <div class="processor-head">
         <div>
@@ -2460,7 +2540,7 @@ function renderNoteAnalyst(item) {
         </article>
       </div>
     </section>
-  `;
+  `, { tools: false });
 }
 
 function portfolioUniverse() {
@@ -2568,19 +2648,21 @@ function renderNoteReader() {
     els.companyWorkspace.innerHTML = `
       <section class="note-reader-empty">
         <h1>还没有上传笔记</h1>
-        <p>上传或保存一条研究笔记后，左栏会按时间显示标题，点击后在这里阅读 Transcript。</p>
+        <p>上传或保存一条研究笔记后，左栏会按时间显示标题，点击后在这里进入完整笔记工作区。</p>
       </section>
     `;
     return true;
   }
 
   const company = itemCompany(item);
-  const activeTab = noteReaderTabs.some(([id]) => id === state.noteReaderTab) ? state.noteReaderTab : "transcript";
-  const tag = company?.ticker || item.source || "NOTE";
+  const activeTab = noteReaderTabs.some(([id]) => id === state.noteReaderTab) ? state.noteReaderTab : "analyst";
+  const tag = notePrimaryTag(item);
   const extraTags = materialTags(item);
   const visibleTags = [...new Set([tag, ...extraTags.slice(0, 2), noteTypeLabel(item)].filter(Boolean))].slice(0, 4);
   const extraCount = Math.max(0, extraTags.length - 2);
   const title = readableText(item.title || "未命名笔记");
+  const statusLabel = noteStatusLabel(item);
+  const nextAction = statusLabel === "待数字" ? "Numbers" : statusLabel === "待分析" ? "分析" : statusLabel === "待处理" ? "处理" : "归档";
 
   els.companyWorkspace.hidden = false;
   els.companyWorkspace.innerHTML = `
@@ -2590,12 +2672,12 @@ function renderNoteReader() {
           <h1>${escapeHtml(title)}</h1>
         </div>
         <div class="note-reader-status">
-          <span>● 待归档</span>
+          <span>● ${escapeHtml(statusLabel)}</span>
           ${visibleTags.map((row) => `<span>${escapeHtml(row)}</span>`).join("")}
           ${extraCount ? `<span>+${extraCount}</span>` : ""}
           <span>${escapeHtml(formatTime(item.publishedAt || item.createdAt))}</span>
-          <span>▱ 归档</span>
-          <button type="button">✓ 归档</button>
+          <span>▱ ${escapeHtml(noteArchiveLabel(item))}</span>
+          <button data-note-reader-tab="${statusLabel === "待数字" ? "numbers" : statusLabel === "待处理" ? "handler" : "analyst"}" type="button">${escapeHtml(nextAction)}</button>
           <button data-delete-item="${escapeHtml(item.id)}" type="button">删除</button>
         </div>
       </header>
@@ -2606,8 +2688,8 @@ function renderNoteReader() {
 
       <section class="note-reader-progress">
         <div>
-          <strong>● 待归档&nbsp;&nbsp; 分析和 Numbers 已完成</strong>
-          <p>可以归档到对应公司/行业文件夹，后面公司页会把它当作研究材料。</p>
+          <strong>● ${escapeHtml(statusLabel)}&nbsp;&nbsp; ${escapeHtml(statusLabel === "待归档" ? "分析和 Numbers 已完成" : "这条笔记正在投研处理流中")}</strong>
+          <p>${escapeHtml(statusLabel === "待数字" ? "下一步提取关键数字，后面复盘时不用回原文里捞数字。" : "可以按转录、处理、分析、数字、批判的顺序把笔记变成可复盘材料。")}</p>
         </div>
         <div class="note-reader-steps">
           <span>● 转录</span>
@@ -2617,7 +2699,7 @@ function renderNoteReader() {
           <span class="warn">● 批判</span>
           <span class="muted">● 归档</span>
         </div>
-        <button type="button">✓ 归档</button>
+        <button data-note-reader-tab="${statusLabel === "待数字" ? "numbers" : statusLabel === "待处理" ? "handler" : "analyst"}" type="button">${escapeHtml(nextAction)}</button>
       </section>
 
       ${renderNoteReaderBody(item, activeTab)}
@@ -4029,7 +4111,7 @@ function deleteItem(itemId) {
     const next = noteListItems()[0] || state.items.find(isVisibleMaterial) || null;
     state.activeItemId = next?.id || "";
     state.readerMode = next ? "note" : "company";
-    state.noteReaderTab = "transcript";
+    state.noteReaderTab = "analyst";
   }
   saveState();
   render();
@@ -4062,7 +4144,7 @@ document.addEventListener("click", (event) => {
     if (item?.companyId) state.activeCompanyId = item.companyId;
     state.activeItemId = dailyItem.dataset.dailyItemId;
     state.readerMode = "note";
-    state.noteReaderTab = "transcript";
+    state.noteReaderTab = "analyst";
     state.railView = "notes";
     saveState();
     render();
@@ -4333,7 +4415,7 @@ els.noteStream.addEventListener("click", (event) => {
     state.activeCompanyId = item.companyId;
   }
   state.readerMode = "note";
-  state.noteReaderTab = "transcript";
+  state.noteReaderTab = "analyst";
   state.activeItemId = button.dataset.itemId;
   saveState();
   render();
