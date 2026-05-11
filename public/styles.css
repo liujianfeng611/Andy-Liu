@@ -1210,6 +1210,130 @@ body.note-reader-mode .main-stage {
   padding: 14px;
 }
 
+.stock-toolbar,
+.indicator-row,
+.model-preview-toolbar,
+.model-signal-row,
+.timeline-summary-grid,
+.workspace-mini-metrics,
+.committee-ready-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.stock-toolbar {
+  justify-content: flex-end;
+  margin: -2px 0 10px;
+}
+
+.stock-toolbar div {
+  display: inline-flex;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0b0a09;
+  padding: 3px;
+}
+
+.stock-toolbar button,
+.indicator-row button,
+.model-preview-toolbar button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  min-height: 26px;
+  padding: 3px 9px;
+  font-weight: 900;
+}
+
+.stock-toolbar button.active,
+.indicator-row button.active,
+.model-preview-toolbar button.active {
+  background: #2f2a25;
+  color: #eee8df;
+}
+
+.stock-stat-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stock-stat-row strong {
+  color: #ded8d1;
+  margin-left: 4px;
+}
+
+.indicator-row {
+  margin: 8px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.range-line {
+  display: grid;
+  grid-template-columns: auto minmax(140px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.range-line strong {
+  position: relative;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #15120f;
+}
+
+.range-line i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2764b1;
+}
+
+.home-lower-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.48fr) minmax(0, 0.52fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.workspace-mini-metrics {
+  margin-top: 12px;
+}
+
+.workspace-mini-metrics span,
+.timeline-summary-grid span,
+.committee-ready-grid span,
+.model-signal-row span {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #12100e;
+  color: var(--muted);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workspace-mini-metrics strong,
+.timeline-summary-grid strong,
+.committee-ready-grid strong,
+.model-signal-row strong {
+  color: #eee8df;
+  margin-left: 4px;
+}
+
 .workspace-two {
   display: grid;
   grid-template-columns: minmax(0, 0.44fr) minmax(0, 0.56fr);
@@ -1280,6 +1404,10 @@ body.note-reader-mode .main-stage {
   padding: 10px;
   font-size: 12px;
   font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.timeline-summary-grid {
   margin-bottom: 10px;
 }
 
@@ -1407,7 +1535,28 @@ body.note-reader-mode .main-stage {
 .model-match span {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
   padding: 9px;
+}
+
+.model-match span b,
+.model-match span small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-match span small {
+  grid-column: 1;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.model-match span em {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
 }
 
 .core-metrics {
@@ -1430,6 +1579,19 @@ body.note-reader-mode .main-stage {
 .model-table-wrap {
   margin-top: 12px;
   overflow-x: auto;
+}
+
+.model-preview-toolbar {
+  margin: 8px 0;
+}
+
+.model-preview-toolbar button {
+  border: 1px solid var(--line);
+  background: #12100e;
+}
+
+.model-signal-row {
+  margin-bottom: 8px;
 }
 
 .model-table {
@@ -1558,9 +1720,41 @@ body.note-reader-mode .main-stage {
   font-style: normal;
 }
 
+.workspace-intro {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 4px 0 12px;
+}
+
 .committee-panel textarea {
   min-height: 220px;
   margin: 10px 0;
+}
+
+.committee-ready-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 10px 0;
+}
+
+.question-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.question-group {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #12100e;
+  padding: 10px;
+}
+
+.question-group > strong {
+  display: block;
+  color: #eee8df;
+  margin-bottom: 8px;
 }
 
 .question-list label {
@@ -1569,6 +1763,26 @@ body.note-reader-mode .main-stage {
   align-items: center;
   gap: 10px;
   padding: 10px;
+}
+
+.question-group label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--line-soft);
+  padding: 9px 0;
+  color: #ded8d1;
+}
+
+.question-group label:last-child {
+  padding-bottom: 0;
+}
+
+.question-group em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
 }
 
 .transcript-shell {
@@ -3076,10 +3290,19 @@ body.light-theme .peer-grid button,
 body.light-theme .recent-note-list button,
 body.light-theme .narrative-filters span,
 body.light-theme .discipline-strip span,
+body.light-theme .workspace-mini-metrics span,
+body.light-theme .timeline-summary-grid span,
+body.light-theme .committee-ready-grid span,
+body.light-theme .model-signal-row span,
+body.light-theme .stock-toolbar div,
+body.light-theme .indicator-row button,
+body.light-theme .model-preview-toolbar button,
 body.light-theme .note-accordion button,
 body.light-theme .material-flow button,
 body.light-theme .action-list button,
 body.light-theme .question-list label,
+body.light-theme .question-group,
+body.light-theme .question-group label,
 body.light-theme .model-match,
 body.light-theme .model-match span,
 body.light-theme .thesis-grid article,
@@ -3112,6 +3335,35 @@ body.light-theme .daily-news-card {
 
 body.light-theme .workspace-tabs button.active {
   background: #ebe7e2;
+}
+
+body.light-theme .stock-toolbar button.active,
+body.light-theme .indicator-row button.active,
+body.light-theme .model-preview-toolbar button.active {
+  background: #ebe7e2;
+  color: #24211f;
+}
+
+body.light-theme .stock-stat-row,
+body.light-theme .indicator-row,
+body.light-theme .range-line,
+body.light-theme .workspace-intro,
+body.light-theme .question-group em,
+body.light-theme .model-match span small {
+  color: #7a7169;
+}
+
+body.light-theme .stock-stat-row strong,
+body.light-theme .workspace-mini-metrics strong,
+body.light-theme .timeline-summary-grid strong,
+body.light-theme .committee-ready-grid strong,
+body.light-theme .model-signal-row strong,
+body.light-theme .question-group > strong {
+  color: #24211f;
+}
+
+body.light-theme .range-line strong {
+  background: #e5ded7;
 }
 
 body.light-theme .company-tags span,

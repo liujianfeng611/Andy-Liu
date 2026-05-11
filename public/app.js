@@ -1781,23 +1781,63 @@ function evidenceBuckets(rows) {
   }));
 }
 
+function timelineDateRange(items) {
+  const dates = items
+    .map((item) => new Date(item.publishedAt || item.createdAt || Date.now()))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((a, b) => a - b);
+  if (!dates.length) return "待定";
+  const fmt = (date) => date.toLocaleDateString("zh-CN", { year: "2-digit", month: "2-digit", day: "2-digit" });
+  return dates.length === 1 ? fmt(dates[0]) : `${fmt(dates[0])} - ${fmt(dates.at(-1))}`;
+}
+
+function dominantTone(items) {
+  const counts = {};
+  items.forEach((item, index) => {
+    const tone = materialTone(item, index);
+    counts[tone] = (counts[tone] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "需求 / 增长";
+}
+
+function companyModelName(company, industry) {
+  if (/半导体|芯片|semiconductor/i.test(industry)) return "Global Semiconductor Model";
+  if (/消费|互联网/i.test(industry)) return "Global Internet / Consumer Model";
+  if (/金融|bank|fin/i.test(industry)) return "Global Financial Model";
+  return "Global Software Model";
+}
+
 function renderCompanyHome(ctx) {
-  const { company, rows, price, viewItems, selected, selectedSummary, peerCompanies, recentNotes } = ctx;
+  const { company, rows, price, viewItems, selected, selectedSummary, peerCompanies, recentNotes, industry } = ctx;
   return `
     <section class="company-grid">
       <article class="stock-panel">
         <div class="panel-head"><strong>股价图</strong><span>${escapeHtml(company.ticker || "")}</span></div>
+        <div class="stock-toolbar">
+          <div><button type="button">3M</button><button type="button">6M</button><button type="button">1Y</button><button class="active" type="button">3Y</button><button type="button">5Y</button></div>
+          <div><button type="button">日K</button><button class="active" type="button">周K</button><button type="button">月K</button><button type="button">季K</button></div>
+        </div>
         <div class="price-line">
           <strong>${price.price}</strong>
           <span class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</span>
           <em>${new Date().toLocaleDateString("zh-CN")}</em>
         </div>
+        <div class="stock-stat-row">
+          <span>最高 <strong class="down">${(Number(price.price) * 1.06).toFixed(2)}</strong></span>
+          <span>最低 <strong class="up">${(Number(price.price) * 0.94).toFixed(2)}</strong></span>
+          <span>今开 <strong>${(Number(price.price) * 1.01).toFixed(2)}</strong></span>
+          <span>昨收 <strong>${(Number(price.price) * 1.02).toFixed(2)}</strong></span>
+          <span>成交量 <strong>${(Math.abs(Number(price.price)) * 18.4).toFixed(0)}万股</strong></span>
+        </div>
         <div class="stock-kpis">
           <span>区间涨跌 <strong class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</strong></span>
+          <span>距高点 <strong class="down">-26.1%</strong></span>
           <span>50日均线 <strong class="up">+14.4</strong></span>
           <span>200日均线 <strong class="down">-55.6</strong></span>
         </div>
+        <div class="indicator-row"><span>指标</span><button class="active" type="button">均线</button><button type="button">成交量</button><button type="button">MACD</button><button type="button">RSI</button></div>
         <div class="chart-bars">${renderMiniChart(company)}</div>
+        <div class="range-line"><span>Low ${(Number(price.price) * 0.75).toFixed(2)}</span><strong><i style="width:42%"></i></strong><span>High ${(Number(price.price) * 1.35).toFixed(2)}</span></div>
       </article>
 
       <aside class="viewpoint-panel">
@@ -1830,18 +1870,27 @@ function renderCompanyHome(ctx) {
       </aside>
     </section>
 
-    <section class="company-source-card">
-      <div class="panel-head"><strong>当前材料</strong><span>${selected ? escapeHtml(selected.source || selected.type) : "无"}</span></div>
-      <p>${escapeHtml(selectedSummary)}</p>
-      <div class="panel-head compact-head"><strong>最近笔记</strong><span>${recentNotes.length}</span></div>
-      <div class="recent-note-list">
-        ${recentNotes.map((item) => `
-          <button data-item-id="${escapeHtml(item.id)}" type="button">
-            <span>${escapeHtml(readableText(item.title))}</span>
-            <em>${formatTime(item.publishedAt || item.createdAt)}</em>
-          </button>
-        `).join("")}
-      </div>
+    <section class="home-lower-grid">
+      <article class="company-source-card">
+        <div class="panel-head"><strong>最近笔记</strong><span>${recentNotes.length}</span></div>
+        <div class="recent-note-list">
+          ${recentNotes.map((item) => `
+            <button data-item-id="${escapeHtml(item.id)}" type="button">
+              <span>${escapeHtml(readableText(item.title))}</span>
+              <em>${formatTime(item.publishedAt || item.createdAt)}</em>
+            </button>
+          `).join("") || '<div class="empty-list">暂无最近笔记</div>'}
+        </div>
+      </article>
+      <article class="company-source-card">
+        <div class="panel-head"><strong>当前材料</strong><span>${selected ? escapeHtml(selected.source || selected.type) : "无"}</span></div>
+        <p>${escapeHtml(selectedSummary)}</p>
+        <div class="workspace-mini-metrics">
+          <span>行业 <strong>${escapeHtml(industry)}</strong></span>
+          <span>模型 <strong>${escapeHtml(companyModelName(company, industry))}</strong></span>
+          <span>材料 <strong>${rows.length}</strong></span>
+        </div>
+      </article>
     </section>
   `;
 }
@@ -1859,13 +1908,20 @@ function renderCompanyTimeline(ctx) {
         <span>全部 ${ctx.rows.length}</span><span>有想法 ${ctx.viewItems.length}</span><span>转折 ${Math.min(2, groups.length)}</span><span>展开当前</span>
       </div>
       <div class="turning-strip">POTENTIAL TURNING POINTS · ${groups.slice(0, 2).map(([month]) => `${month} 叙事出现变化`).join(" · ") || "等待更多材料"}</div>
+      <div class="timeline-summary-grid">
+        <span>材料 <strong>${ctx.rows.length}</strong></span>
+        <span>想法 <strong>${ctx.viewItems.length}</strong></span>
+        <span>转折 <strong>${Math.min(2, groups.length)}</strong></span>
+        <span>主线 <strong>${escapeHtml(groups[0] ? dominantTone(groups[0][1]) : "待建立")}</strong></span>
+      </div>
       <div class="timeline-list">
         ${groups.map(([month, items], index) => `
           <article class="timeline-month ${index === 0 ? "active" : ""}">
             <div>
               <strong>${escapeHtml(month)}</strong>
-              <span>${escapeHtml(materialTone(items[0], index))}：${escapeHtml(readableText(items[0]?.title || "新增材料"))}</span>
-              <p>这段主要围绕 ${escapeHtml(materialTone(items[0], index))}，共 ${items.length} 条材料；需要判断是否改变核心变量。</p>
+              <span>${escapeHtml(timelineDateRange(items))}</span>
+              <span>${escapeHtml(dominantTone(items))}：${escapeHtml(readableText(items[0]?.title || "新增材料"))}</span>
+              <p>这段主要围绕 ${escapeHtml(dominantTone(items))}，共 ${items.length} 条材料；需要判断是否改变核心变量、估值区间或下一步动作。</p>
             </div>
             <em>${items.length}</em>
           </article>
@@ -1913,6 +1969,7 @@ function renderCompanyNotes(ctx) {
 }
 
 function renderCompanyModel(ctx) {
+  const modelName = companyModelName(ctx.company, ctx.industry);
   const metrics = [
     ["REVENUE", "676,855", "2031"],
     ["REV YOY", "16.6%", "2031"],
@@ -1927,14 +1984,19 @@ function renderCompanyModel(ctx) {
     <section class="workspace-panel">
       <div class="panel-head"><strong>模型版本</strong><span>当前模型</span></div>
       <div class="model-version-card">
-        <div><strong>${escapeHtml(ctx.company.name || ctx.company.ticker)} Model</strong><span>Sheet: ${escapeHtml(ctx.company.ticker || "Ticker")} · 文件: 上传你的 Excel 后替换</span></div>
+        <div><strong>${escapeHtml(modelName)}</strong><span>Sheet: ${escapeHtml(ctx.company.ticker || "Ticker")} · 文件: 上传你的 Excel 后替换</span></div>
         <button type="button">上传新版本</button>
         <button type="button">换模型</button>
       </div>
       <div class="model-layout">
         <div class="model-match">
           <strong>模型匹配</strong>
-          ${[100, 88, 72, 60].map((score, index) => `<span>${escapeHtml(ctx.company.name)} <em>${score}</em></span>`).join("")}
+          ${[
+            [ctx.company.name, ctx.company.ticker || "Ticker", 100],
+            [modelName, ctx.industry, 88],
+            ["Peer Coverage Model", "同组公司", 72],
+            ["Cloud Computing Platforms Comparison", "AWS / MSFT / GOOGL", 60]
+          ].map(([name, meta, score]) => `<span><b>${escapeHtml(name)}</b><small>${escapeHtml(meta)}</small><em>${score}</em></span>`).join("")}
         </div>
         <div>
           <div class="panel-head compact-head"><strong>核心数字</strong><span>${metrics.length}</span></div>
@@ -1943,6 +2005,13 @@ function renderCompanyModel(ctx) {
       </div>
       <div class="model-table-wrap">
         <div class="panel-head"><strong>模型预览</strong><span>${escapeHtml(ctx.company.ticker || "")}</span></div>
+        <div class="model-preview-toolbar">
+          <button type="button">年度 22</button><button type="button">半年度 24</button><button class="active" type="button">季度 48</button>
+          <button type="button">近4年+预测</button><button type="button">复制表格</button>
+        </div>
+        <div class="model-signal-row">
+          <span>最新列 <strong>2028</strong></span><span>收入趋势 <strong>+21.3%</strong></span><span>利润率 <strong>+1.1ppt</strong></span><span>显示 <strong>480 行</strong></span>
+        </div>
         <table class="model-table"><thead><tr><th>指标</th><th>2023</th><th>2024</th><th>2025</th><th>2026</th><th>2027E</th></tr></thead><tbody>${rows}</tbody></table>
       </div>
     </section>
@@ -1989,6 +2058,7 @@ function renderCompanyActions(ctx) {
   return `
     <section class="workspace-panel">
       <div class="panel-head"><strong>操作纪律</strong><span>把交易经验变成当下动作</span></div>
+      <p class="workspace-intro">Long / Short 在这里代表立场和市场拥挤方向，不要求已经有仓位。AI 会先遵守你的操作纪律，再读公司材料、想法、股价和模型。</p>
       <div class="discipline-strip"><span>材料 ${ctx.evidence}</span><span>想法 ${ctx.viewItems.length}</span><span>股价位置 42%</span><span>模型 自动判断</span></div>
       <div class="action-list">
         ${actions.map(([mark, title, detail]) => `
@@ -2010,26 +2080,37 @@ function renderCompanyCommittee(ctx) {
         <button type="button">生成并写入观点</button>
       </article>
       <article class="workspace-panel">
-        <div class="panel-head"><strong>还没有投委会质询</strong><span>待生成</span></div>
-        <p>写下你的当前判断，然后生成一版红队质询和可执行结论。</p>
+        <div class="panel-head"><strong>投委会材料包</strong><span>待生成</span></div>
+        <div class="committee-ready-grid">
+          <span>Pre-read <strong>${ctx.recentNotes.length} 条</strong></span>
+          <span>关键分歧 <strong>${evidenceBuckets(ctx.rows).filter((bucket) => bucket.rows.length).length}</strong></span>
+          <span>模型状态 <strong>已接</strong></span>
+          <span>结论 <strong>待投票</strong></span>
+        </div>
+        <p>写下你的当前判断，然后生成一版红队质询、投票摘要和会后行动清单。</p>
       </article>
     </section>
   `;
 }
 
 function renderCompanyQuestions(ctx) {
-  const questions = [
-    "这个公司未来 6-12 个月最关键的验证变量是什么？",
-    "哪些公开信息会证明我的核心假设错了？",
-    "市场现在最可能误判的是需求、利润率还是估值？",
-    "下一次财报前必须补哪三份材料？"
+  const groups = [
+    ["核心变量", ["未来 6-12 个月最关键的验证变量是什么？", "哪些公开信息会证明核心假设错了？"]],
+    ["模型/数字", ["收入、利润率、现金流里哪一个最能推动估值重估？", "下一次财报前必须补哪三份材料？"]],
+    ["竞争/替代", ["竞争对手正在抢走哪一块预算或客户？", "是否出现替代品让 TAM 被重新定义？"]],
+    ["动作", ["如果股价先涨 20%，追还是等？", "如果财报后跌 15%，是机会还是 thesis 破坏？"]]
   ];
   return `
     <section class="workspace-panel">
-      <div class="panel-head"><strong>问题清单</strong><span>${questions.length} 个</span></div>
-      <div class="question-list">
-        ${questions.map((question, index) => `
-          <label><input type="checkbox" ${index === 0 ? "checked" : ""} /><span>${question}</span><em>${index === 0 ? "正在验证" : "待验证"}</em></label>
+      <div class="panel-head"><strong>问题清单</strong><span>${groups.reduce((sum, row) => sum + row[1].length, 0)} 个</span></div>
+      <div class="question-board">
+        ${groups.map(([label, questions], groupIndex) => `
+          <article class="question-group">
+            <strong>${escapeHtml(label)}</strong>
+            ${questions.map((question, index) => `
+              <label><input type="checkbox" ${groupIndex === 0 && index === 0 ? "checked" : ""} /><span>${escapeHtml(question)}</span><em>${groupIndex === 0 && index === 0 ? "正在验证" : "待验证"}</em></label>
+            `).join("")}
+          </article>
         `).join("")}
       </div>
     </section>
@@ -2458,6 +2539,7 @@ function renderCompanyWorkspace() {
   const evidence = rows.filter((item) => isVisibleMaterial(item)).length;
   const price = pseudoPrice(company);
   const industry = inferIndustry(company);
+  const modelName = companyModelName(company, industry);
   const viewItems = rows.slice(0, 4);
   const selected = selectedItem();
   const selectedSummary = selected ? readableText(selected.summary || selected.sourceText || selected.title) : "暂无材料";
@@ -2505,7 +2587,7 @@ function renderCompanyWorkspace() {
 
     <section class="company-metrics">
       <article><span>股价</span><strong>${price.price}</strong><em class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</em></article>
-      <article><span>模型</span><strong>${escapeHtml(company.name?.split(" ")[0] || company.ticker || "Company")}</strong><em>${escapeHtml(industry)}</em></article>
+      <article><span>模型</span><strong>${escapeHtml(company.name?.split(" ")[0] || company.ticker || "Company")}</strong><em>${escapeHtml(modelName)}</em></article>
       <article><span>证据</span><strong>${evidence} 条</strong><em>${localDocs.length} 份云端资料</em></article>
       <article><span>研究状态</span><strong>100/100</strong><em>可以进入深研</em></article>
     </section>
@@ -4043,6 +4125,14 @@ document.addEventListener("input", (event) => {
   ideaSaveTimer = window.setTimeout(() => saveCurrentNoteIdea(), 1200);
 });
 document.addEventListener("keydown", (event) => {
+  const companyJump = event.target.closest("#companyJumpInput");
+  if (companyJump && event.key === "Enter") {
+    event.preventDefault();
+    const success = goToCompanyQuery(companyJump.value);
+    if (!success) companyJump.setCustomValidity("没有找到公司，也无法新建公司页。");
+    return;
+  }
+
   const sourceInput = event.target.closest("#dailyNewsSourceName, #dailyNewsSourceUrl");
   if (!sourceInput || event.key !== "Enter") return;
   event.preventDefault();
