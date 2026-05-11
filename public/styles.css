@@ -573,6 +573,94 @@ body.team-mode .terminal-shell {
   background: #0d2836;
 }
 
+.folder-rail-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0b0a09;
+  margin: 0 14px 12px;
+  padding: 0 12px;
+  min-height: 44px;
+  color: var(--muted);
+}
+
+.folder-rail-search input {
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.folder-rail-recents {
+  border-bottom: 1px solid var(--line-soft);
+  margin: 0 0 12px;
+  padding: 0 14px 14px;
+}
+
+.folder-rail-recents > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.folder-rail-recents em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.folder-rail-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.folder-rail-recent-grid button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #0b0a09;
+  color: #ded8d1;
+  min-height: 32px;
+  padding: 5px 8px;
+  text-align: left;
+}
+
+.folder-rail-recent-grid button.active {
+  border-color: #145f83;
+  background: #0d2836;
+  color: #9fe7ff;
+}
+
+.folder-rail-recent-grid strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-rail-recent-grid em {
+  border-radius: 5px;
+  background: #2f2a25;
+  color: #cfc7bf;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
 .folder-icon {
   color: #d2b45a;
   font-size: 18px;
@@ -800,6 +888,10 @@ body.company-mode .right-drawer {
 }
 
 body.daily-mode .right-drawer {
+  display: none;
+}
+
+body.folders-mode .right-drawer {
   display: none;
 }
 
@@ -3465,16 +3557,20 @@ body.light-theme .team-empty-icon {
 
 body.light-theme .cloud-folder,
 body.light-theme .cloud-folder.directory,
-body.light-theme .cloud-folder.custom {
+body.light-theme .cloud-folder.custom,
+body.light-theme .folder-rail-search,
+body.light-theme .folder-rail-recent-grid button {
   border-color: #ddd7d1;
   background: #ffffff;
   color: #2d2925;
 }
 
 body.light-theme .cloud-folder:hover,
-body.light-theme .cloud-folder.active {
+body.light-theme .cloud-folder.active,
+body.light-theme .folder-rail-recent-grid button.active {
   border-color: #8fb9f4;
   background: #eef6ff;
+  color: #1e4f9a;
 }
 
 body.light-theme .folder-main strong,
@@ -3482,7 +3578,9 @@ body.light-theme .folder-breadcrumb strong,
 body.light-theme .company-group-title,
 body.light-theme .mini-card .drawer-title h2,
 body.light-theme .universe-upload strong,
-body.light-theme .universe-row strong {
+body.light-theme .universe-row strong,
+body.light-theme .folder-board-section-title,
+body.light-theme .folder-rail-recent-grid strong {
   color: #24211f;
 }
 
@@ -3492,8 +3590,25 @@ body.light-theme .folder-breadcrumb span,
 body.light-theme .company-group-title em,
 body.light-theme .universe-upload small,
 body.light-theme .universe-summary p,
-body.light-theme .universe-row span {
+body.light-theme .universe-row span,
+body.light-theme .folder-card-large p,
+body.light-theme .folder-chip em,
+body.light-theme .folder-rail-recents > div:first-child,
+body.light-theme .folder-rail-recents em {
   color: #7a7169;
+}
+
+body.light-theme .folder-rail-search input {
+  color: #24211f;
+}
+
+body.light-theme .folder-rail-recents {
+  border-bottom-color: #e7e2dd;
+}
+
+body.light-theme .folder-rail-recent-grid em {
+  background: #e6e1dc;
+  color: #746c64;
 }
 
 body.light-theme .right-drawer {
@@ -4188,10 +4303,45 @@ body.dark-theme.daily-mode .daily-news-generate button:disabled {
   margin-right: 5px;
 }
 
+.folder-chip em {
+  color: var(--muted);
+  font-style: normal;
+  margin-left: 5px;
+}
+
 .folder-chip.static {
   display: inline-flex;
   align-items: center;
   pointer-events: none;
+}
+
+.folder-card-large p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 12px 0 0;
+}
+
+.folder-region-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.region-folder {
+  min-height: 160px;
+}
+
+.static-head {
+  pointer-events: none;
+}
+
+.folder-board-section-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+  margin: 4px 0 -4px;
 }
 
 .folder-empty,

@@ -15,6 +15,7 @@ const defaultState = {
   dailyNewsItems: [],
   dailyNewsCategorySummaries: {},
   teamFiles: [],
+  folderSearchQuery: "",
   folderPath: [],
   customFolders: [],
   companies: [
@@ -1110,15 +1111,31 @@ function renderCloudFolders() {
   const selectedIndustry = path[0] || "";
   const selectedCustomId = selectedIndustry.startsWith("custom:") ? selectedIndustry.slice(7) : "";
   const selectedCustomFolder = customFolders().find((folder) => folder.id === selectedCustomId);
+  const query = String(state.folderSearchQuery || "").trim().toLowerCase();
+  const recentCompanies = [
+    activeCompany(),
+    ...state.companies
+  ].filter((company, index, rows) => company && rows.findIndex((row) => row.id === company.id) === index).slice(0, 8);
+  const railTop = `
+    <div class="folder-rail-search">
+      <span>⌕</span>
+      <input data-folder-search type="search" placeholder="搜索文件夹..." value="${escapeHtml(state.folderSearchQuery || "")}" />
+    </div>
+    <section class="folder-rail-recents">
+      <div><span>最近公司</span><em>当前 ${escapeHtml(activeCompany().name?.split(" ")[0] || activeCompany().ticker || "")}</em></div>
+      <div class="folder-rail-recent-grid">
+        ${recentCompanies.map((company) => `
+          <button class="${company.id === state.activeCompanyId ? "active" : ""}" data-folder-company="${escapeHtml(company.id)}" type="button">
+            <strong>${escapeHtml(company.name || company.ticker)}</strong>
+            ${company.ticker ? `<em>${escapeHtml(company.ticker)}</em>` : ""}
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
 
   if (!selectedIndustry) {
-    const groups = state.companies.reduce((acc, company) => {
-      const industry = inferIndustry(company);
-      if (!acc.has(industry)) acc.set(industry, []);
-      acc.get(industry).push(company);
-      return acc;
-    }, new Map());
-    const industryRows = [...groups.entries()].map(([industry, companies]) => {
+    const industryRows = sortedIndustryEntries().map(([industry, companies]) => {
       const fileCount = companies.reduce((sum, company) => sum + companyCloudItems(company.id).length, 0);
       return `
         <button class="cloud-folder directory" data-open-folder="${escapeHtml(industry)}" type="button">
@@ -1154,6 +1171,7 @@ function renderCloudFolders() {
     });
     const rows = [...customRows, ...industryRows];
     els.noteStream.innerHTML = `
+      ${railTop}
       <div class="folder-breadcrumb"><strong>云端文件夹</strong><span>按行业分类</span></div>
       ${rows.join("") || `<div class="empty-list">还没有分类文件夹。先在右侧投资组合雷达添加或导入公司。</div>`}
     `;
@@ -1185,6 +1203,7 @@ function renderCloudFolders() {
       </button>
     `).join("");
     els.noteStream.innerHTML = `
+      ${railTop}
       <button class="folder-breadcrumb clickable" ${selectedCustomFolder.parentId ? `data-custom-folder="${escapeHtml(selectedCustomFolder.parentId)}"` : "data-folder-back"} type="button">
         <strong>云端文件夹 / ${escapeHtml(selectedCustomFolder.name)}</strong>
         <span>← 返回上级</span>
@@ -1194,7 +1213,9 @@ function renderCloudFolders() {
     return;
   }
 
-  const companies = state.companies.filter((company) => inferIndustry(company) === selectedIndustry);
+  const companies = state.companies
+    .filter((company) => inferIndustry(company) === selectedIndustry)
+    .filter((company) => companyMatchesFolderSearch(company, query));
   const rows = companies.map((company) => {
     const cloudItems = companyCloudItems(company.id);
     const latest = cloudItems[0];
@@ -1214,6 +1235,7 @@ function renderCloudFolders() {
   });
 
   els.noteStream.innerHTML = `
+    ${railTop}
     <button class="folder-breadcrumb clickable" data-folder-back type="button">
       <strong>云端文件夹 / ${escapeHtml(selectedIndustry)}</strong>
       <span>← 返回分类</span>
@@ -1229,6 +1251,66 @@ function groupedCompanies() {
     acc.get(industry).push(company);
     return acc;
   }, new Map());
+}
+
+function inferFolderRegion(company) {
+  const text = `${company.market || ""} ${company.country || ""} ${company.exchange || ""} ${company.region || ""} ${company.name || ""} ${company.ticker || ""}`.toLowerCase();
+  const ticker = String(company.ticker || "").toUpperCase();
+  if (/\bjp\b|japan|tokyo|\.t$|jp$|日本/.test(text) || /^\d{4}\s?JP$/.test(ticker)) return "Japan";
+  if (/\bkr\b|korea|kospi|韩国|korea/.test(text)) return "Korea";
+  if (/\bhk\b|china|shanghai|shenzhen|china|中国|香港|\.hk$/.test(text) || /-W| ORD| ADR/.test(ticker)) return "China";
+  if (/\btw\b|taiwan|台湾/.test(text)) return "Taiwan";
+  if (/\bindia\b|印度/.test(text)) return "India";
+  if (/\beu\b|europe|london|france|germany|欧洲/.test(text)) return "Europe";
+  if (/\bglobal\b|全球/.test(text)) return "Global";
+  if (/^[A-Z.]{1,6}$/.test(ticker)) return "US";
+  return "Unsorted";
+}
+
+function folderRegionOrder(region) {
+  return ["US", "China", "Global", "Japan", "Korea", "Taiwan", "India", "Europe", "Unsorted"].indexOf(region);
+}
+
+function groupCompaniesByRegion(companies) {
+  return companies.reduce((acc, company) => {
+    const region = inferFolderRegion(company);
+    if (!acc.has(region)) acc.set(region, []);
+    acc.get(region).push(company);
+    return acc;
+  }, new Map());
+}
+
+function companyMatchesFolderSearch(company, query) {
+  if (!query) return true;
+  const haystack = companySearchText(company).toLowerCase();
+  return haystack.includes(query);
+}
+
+function folderMatchesSearch(label, companies, query) {
+  if (!query) return true;
+  const normalized = String(label || "").toLowerCase();
+  return normalized.includes(query) || companies.some((company) => companyMatchesFolderSearch(company, query));
+}
+
+function sortedIndustryEntries() {
+  const query = String(state.folderSearchQuery || "").trim().toLowerCase();
+  return [...groupedCompanies().entries()]
+    .filter(([industry, companies]) => folderMatchesSearch(industry, companies, query))
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+}
+
+function folderRegionChips(companies, openIndustry = "") {
+  const groups = [...groupCompaniesByRegion(companies).entries()]
+    .sort((a, b) => {
+      const ai = folderRegionOrder(a[0]);
+      const bi = folderRegionOrder(b[0]);
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi) || a[0].localeCompare(b[0]);
+    });
+  return groups.map(([region, rows]) => `
+    <button class="folder-chip ${openIndustry ? "" : "static"}" ${openIndustry ? `data-open-folder="${escapeHtml(openIndustry)}" data-region-jump="${escapeHtml(region)}"` : ""} type="button">
+      <span>▱</span>${escapeHtml(region)} <em>${rows.length}</em>
+    </button>
+  `).join("");
 }
 
 function renderFolderBoard() {
@@ -1263,20 +1345,17 @@ function renderFolderBoard() {
         </article>
       `;
     }).join("");
-    const cards = [...groupedCompanies().entries()].map(([industry, companies]) => {
+    const cards = sortedIndustryEntries().map(([industry, companies]) => {
       const fileCount = companies.reduce((sum, company) => sum + companyCloudItems(company.id).length, 0);
-      const chips = companies.slice(0, 8).map((company) => `
-        <button class="folder-chip" data-folder-company="${escapeHtml(company.id)}" type="button">
-          <span>▱</span>${escapeHtml(company.ticker || company.name)}
-        </button>
-      `).join("");
+      const chips = folderRegionChips(companies, industry);
       return `
         <article class="folder-card-large">
           <button class="folder-card-head" data-open-folder="${escapeHtml(industry)}" type="button">
             <span class="folder-card-icon">▰</span>
             <strong>${escapeHtml(industry)}</strong>
-            <em>${fileCount}</em>
+            <em>${companies.length}</em>
           </button>
+          <p>${companies.length} 家公司 · ${fileCount} 份资料</p>
           <div class="folder-chip-grid">${chips || '<span class="folder-empty">暂无公司</span>'}</div>
         </article>
       `;
@@ -1287,6 +1366,7 @@ function renderFolderBoard() {
         <div>
           <span>公开</span>
           <h2>云端文件夹</h2>
+          <p>按行业和地区管理公司材料，像本地电脑文件夹一样进入、上传、保存网页。</p>
         </div>
         <div class="folder-board-actions">
           <button data-create-folder type="button">新建文件夹</button>
@@ -1347,7 +1427,34 @@ function renderFolderBoard() {
     return;
   }
 
-  const companies = state.companies.filter((company) => inferIndustry(company) === selectedIndustry);
+  const companies = state.companies
+    .filter((company) => inferIndustry(company) === selectedIndustry)
+    .filter((company) => companyMatchesFolderSearch(company, String(state.folderSearchQuery || "").trim().toLowerCase()));
+  const regionCards = [...groupCompaniesByRegion(companies).entries()]
+    .sort((a, b) => {
+      const ai = folderRegionOrder(a[0]);
+      const bi = folderRegionOrder(b[0]);
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi) || a[0].localeCompare(b[0]);
+    })
+    .map(([region, rows]) => {
+      const fileCount = rows.reduce((sum, company) => sum + companyCloudItems(company.id).length, 0);
+      const companyChips = rows.slice(0, 18).map((company) => `
+        <button class="folder-chip" data-folder-company="${escapeHtml(company.id)}" type="button">
+          <span>▱</span>${escapeHtml(company.ticker || company.name)}
+        </button>
+      `).join("");
+      return `
+        <article class="folder-card-large region-folder">
+          <div class="folder-card-head static-head">
+            <span class="folder-card-icon">▰</span>
+            <strong>${escapeHtml(region)}</strong>
+            <em>${rows.length}</em>
+          </div>
+          <p>${rows.length} 家公司 · ${fileCount} 份资料</p>
+          <div class="folder-chip-grid">${companyChips || '<span class="folder-empty">暂无公司</span>'}</div>
+        </article>
+      `;
+    }).join("");
   const cards = companies.map((company) => {
     const cloudItems = companyCloudItems(company.id);
     const latest = cloudItems[0];
@@ -1369,8 +1476,17 @@ function renderFolderBoard() {
   }).join("");
 
   els.folderBoard.innerHTML = `
-    <button class="folder-board-back" data-folder-back type="button">← 云端文件夹 / ${escapeHtml(selectedIndustry)}</button>
-    <div class="folder-card-grid-main">${cards || `<div class="empty-list">${escapeHtml(selectedIndustry)} 下面还没有公司文件夹。</div>`}</div>
+    <div class="folder-board-top">
+      <button class="folder-board-back" data-folder-back type="button">← 云端文件夹 / ${escapeHtml(selectedIndustry)}</button>
+      <div class="folder-board-actions">
+        <button data-create-folder type="button">新建文件夹</button>
+        <button data-upload-current-company type="button">上传资料</button>
+        <button data-save-web-current-company type="button">保存网页</button>
+      </div>
+    </div>
+    <div class="folder-region-grid">${regionCards || `<div class="empty-list">${escapeHtml(selectedIndustry)} 下面还没有公司文件夹。</div>`}</div>
+    <div class="folder-board-section-title">公司文件夹</div>
+    <div class="folder-card-grid-main">${cards || ""}</div>
   `;
 }
 
@@ -4117,6 +4233,15 @@ document.addEventListener("click", (event) => {
   }
 });
 document.addEventListener("input", (event) => {
+  const folderSearch = event.target.closest("[data-folder-search]");
+  if (folderSearch) {
+    state.folderSearchQuery = folderSearch.value;
+    saveState();
+    renderCloudFolders();
+    renderFolderBoard();
+    return;
+  }
+
   const ideaInput = event.target.closest("[data-note-idea-input]");
   if (!ideaInput) return;
   const stateLabel = document.querySelector("[data-idea-save-state]");
