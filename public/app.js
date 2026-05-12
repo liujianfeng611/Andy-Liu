@@ -15,6 +15,8 @@ const defaultState = {
   dailyNewsItems: [],
   dailyNewsCategorySummaries: {},
   stockPrices: {},
+  stockChartRange: "3y",
+  stockChartInterval: "1wk",
   teamFiles: [],
   folderSearchQuery: "",
   folderPath: [],
@@ -103,6 +105,21 @@ const noteProcessorModels = [
   { id: "glm-5.1", label: "GLM 5.1", provider: "glm" },
   { id: "MiniMax-M2.7", label: "MiniMax M2.7", provider: "minimax" },
   { id: "mimo-v2.5-pro", label: "Mimo v2.5 Pro", provider: "mimo" }
+];
+
+const stockRangeOptions = [
+  ["3mo", "3M"],
+  ["6mo", "6M"],
+  ["1y", "1Y"],
+  ["3y", "3Y"],
+  ["5y", "5Y"]
+];
+
+const stockIntervalOptions = [
+  ["1d", "日K"],
+  ["1wk", "周K"],
+  ["1mo", "月K"],
+  ["3mo", "季K"]
 ];
 
 const dailyNewsSourceCatalog = [
@@ -1886,11 +1903,35 @@ function pseudoPrice(company) {
   };
 }
 
+function activeStockRange() {
+  return stockRangeOptions.some(([id]) => id === state.stockChartRange) ? state.stockChartRange : "3y";
+}
+
+function activeStockInterval() {
+  return stockIntervalOptions.some(([id]) => id === state.stockChartInterval) ? state.stockChartInterval : "1wk";
+}
+
+function stockCacheKey(ticker, range = activeStockRange(), interval = activeStockInterval()) {
+  return [String(ticker || "").toUpperCase(), range, interval].join("|");
+}
+
+function renderStockToolbar(kind, options, activeValue) {
+  return `
+    <div>
+      ${options.map(([id, label]) => `
+        <button class="${id === activeValue ? "active" : ""}" data-stock-${kind}="${escapeHtml(id)}" type="button">${escapeHtml(label)}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
 function companyStockPrice(company) {
   const ticker = String(company?.ticker || "").toUpperCase();
-  const cached = ticker ? state.stockPrices?.[ticker] : null;
+  const range = activeStockRange();
+  const interval = activeStockInterval();
+  const cached = ticker ? (state.stockPrices?.[stockCacheKey(ticker, range, interval)] || state.stockPrices?.[ticker]) : null;
   if (cached?.price) return cached;
-  return pseudoPrice(company);
+  return { ...pseudoPrice(company), range, interval };
 }
 
 function formatVolume(value) {
@@ -2059,6 +2100,8 @@ function renderCompanyHome(ctx) {
   const changeNumber = Number(price.change) || 0;
   const updatedAt = price.updatedAt ? formatTime(price.updatedAt) : "未更新";
   const sourceLabel = price.source && price.source !== "示意数据" ? price.source : "点击更新获取行情";
+  const activeRange = activeStockRange();
+  const activeInterval = activeStockInterval();
   return `
     <section class="company-grid">
       <article class="stock-panel">
@@ -2068,8 +2111,8 @@ function renderCompanyHome(ctx) {
         </div>
         <div class="stock-source-line">${escapeHtml(sourceLabel)} · ${escapeHtml(updatedAt)}${stockPriceStatus ? ` · ${escapeHtml(stockPriceStatus)}` : ""}</div>
         <div class="stock-toolbar">
-          <div><button type="button">3M</button><button type="button">6M</button><button type="button">1Y</button><button class="active" type="button">3Y</button><button type="button">5Y</button></div>
-          <div><button type="button">日K</button><button class="active" type="button">周K</button><button type="button">月K</button><button type="button">季K</button></div>
+          ${renderStockToolbar("range", stockRangeOptions, activeRange)}
+          ${renderStockToolbar("interval", stockIntervalOptions, activeInterval)}
         </div>
         <div class="price-line">
           <strong>${price.price}</strong>
@@ -4149,14 +4192,16 @@ async function refreshStockPrice(companyId = state.activeCompanyId) {
   const company = state.companies.find((row) => row.id === companyId) || activeCompany();
   const ticker = String(company?.ticker || "").trim().toUpperCase();
   if (!ticker || stockPriceBusy) return;
+  const range = activeStockRange();
+  const interval = activeStockInterval();
   stockPriceBusy = true;
-  stockPriceStatus = `正在更新 ${ticker}`;
+  stockPriceStatus = `正在更新 ${ticker} ${stockRangeOptions.find(([id]) => id === range)?.[1] || range} ${stockIntervalOptions.find(([id]) => id === interval)?.[1] || interval}`;
   render();
   try {
-    const data = await api(`stock-price?ticker=${encodeURIComponent(ticker)}&range=3y&interval=1wk`);
+    const data = await api(`stock-price?ticker=${encodeURIComponent(ticker)}&range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`);
     state.stockPrices = {
       ...(state.stockPrices || {}),
-      [ticker]: data
+      [stockCacheKey(ticker, range, interval)]: data
     };
     stockPriceStatus = `已更新 ${ticker}`;
     saveState();
@@ -4166,6 +4211,18 @@ async function refreshStockPrice(companyId = state.activeCompanyId) {
     stockPriceBusy = false;
     render();
   }
+}
+
+function changeStockChartSetting(kind, value) {
+  if (kind === "range" && stockRangeOptions.some(([id]) => id === value)) {
+    state.stockChartRange = value;
+  }
+  if (kind === "interval" && stockIntervalOptions.some(([id]) => id === value)) {
+    state.stockChartInterval = value;
+  }
+  saveState();
+  render();
+  refreshStockPrice(state.activeCompanyId);
 }
 
 function saveCurrentNoteIdea({ renderAfter = false } = {}) {
@@ -4380,6 +4437,16 @@ document.addEventListener("click", (event) => {
   const refreshStock = event.target.closest("[data-refresh-stock]");
   if (refreshStock) {
     refreshStockPrice(refreshStock.dataset.refreshStock);
+    return;
+  }
+  const stockRange = event.target.closest("[data-stock-range]");
+  if (stockRange) {
+    changeStockChartSetting("range", stockRange.dataset.stockRange);
+    return;
+  }
+  const stockInterval = event.target.closest("[data-stock-interval]");
+  if (stockInterval) {
+    changeStockChartSetting("interval", stockInterval.dataset.stockInterval);
     return;
   }
   const uploadTeamFile = event.target.closest("[data-upload-team-file]");
