@@ -223,6 +223,95 @@ async function getSecFilings(cik) {
   });
 }
 
+function safeTicker(value) {
+  return cleanText(value).toUpperCase().replace(/[^A-Z0-9.\-=]/g, "").slice(0, 24);
+}
+
+function fixedNumber(value, digits = 2) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : "";
+}
+
+function movingAverageDelta(history, days, latest) {
+  const rows = history.slice(-days).map((row) => Number(row.close)).filter(Number.isFinite);
+  if (!rows.length || !Number.isFinite(Number(latest))) return "";
+  const average = rows.reduce((sum, value) => sum + value, 0) / rows.length;
+  return fixedNumber(Number(latest) - average, 2);
+}
+
+async function getStockPrice(tickerValue, range = "3y", interval = "1wk") {
+  const ticker = safeTicker(tickerValue);
+  if (!ticker) throw new Error("Missing ticker");
+  const params = new URLSearchParams({
+    range,
+    interval,
+    includePrePost: "false",
+    events: "div,splits"
+  });
+  const data = await fetchJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?${params}`, {
+    accept: "application/json"
+  });
+  const result = data?.chart?.result?.[0];
+  if (!result) throw new Error(data?.chart?.error?.description || `No quote data for ${ticker}`);
+
+  const quote = result.indicators?.quote?.[0] || {};
+  const history = (result.timestamp || []).map((timestamp, index) => ({
+    date: new Date(timestamp * 1000).toISOString(),
+    open: quote.open?.[index] ?? null,
+    high: quote.high?.[index] ?? null,
+    low: quote.low?.[index] ?? null,
+    close: quote.close?.[index] ?? null,
+    volume: quote.volume?.[index] ?? null
+  })).filter((row) => Number.isFinite(Number(row.close)));
+
+  const meta = result.meta || {};
+  const latest = Number(meta.regularMarketPrice ?? history.at(-1)?.close);
+  const previousClose = Number(meta.previousClose ?? history.at(-2)?.close ?? latest);
+  const changeAmount = latest - previousClose;
+  const change = previousClose ? (changeAmount / previousClose) * 100 : 0;
+  const highs = history.map((row) => Number(row.high ?? row.close)).filter(Number.isFinite);
+  const lows = history.map((row) => Number(row.low ?? row.close)).filter(Number.isFinite);
+  const rangeHigh = highs.length ? Math.max(...highs) : latest;
+  const rangeLow = lows.length ? Math.min(...lows) : latest;
+  const rangeChange = history[0]?.close ? ((latest - Number(history[0].close)) / Number(history[0].close)) * 100 : change;
+  const rangePosition = rangeHigh === rangeLow ? 50 : ((latest - rangeLow) / (rangeHigh - rangeLow)) * 100;
+  const distanceFromHigh = rangeHigh ? ((latest - rangeHigh) / rangeHigh) * 100 : 0;
+
+  return {
+    ticker,
+    price: fixedNumber(latest),
+    change: fixedNumber(change),
+    changeAmount: fixedNumber(changeAmount),
+    open: fixedNumber(meta.regularMarketOpen ?? history.at(-1)?.open),
+    high: fixedNumber(meta.regularMarketDayHigh ?? history.at(-1)?.high ?? rangeHigh),
+    low: fixedNumber(meta.regularMarketDayLow ?? history.at(-1)?.low ?? rangeLow),
+    previousClose: fixedNumber(previousClose),
+    volume: Number(meta.regularMarketVolume ?? history.at(-1)?.volume ?? 0),
+    currency: meta.currency || "",
+    exchange: meta.exchangeName || meta.fullExchangeName || "",
+    marketTime: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toLocaleDateString("zh-CN") : "",
+    range,
+    interval,
+    rangeLow: fixedNumber(rangeLow),
+    rangeHigh: fixedNumber(rangeHigh),
+    rangeChange: fixedNumber(rangeChange),
+    rangePosition: fixedNumber(rangePosition, 1),
+    distanceFromHigh: fixedNumber(distanceFromHigh),
+    ma50Delta: movingAverageDelta(history, 50, latest),
+    ma200Delta: movingAverageDelta(history, 200, latest),
+    history: history.map((row) => ({
+      date: row.date,
+      open: fixedNumber(row.open),
+      high: fixedNumber(row.high),
+      low: fixedNumber(row.low),
+      close: fixedNumber(row.close),
+      volume: Number(row.volume || 0)
+    })),
+    source: "Yahoo Finance",
+    updatedAt: new Date().toISOString()
+  };
+}
+
 async function handleApi(req, res, url) {
   try {
     if (req.method === "OPTIONS") return sendJson(res, 204, {});
@@ -290,6 +379,15 @@ async function handleApi(req, res, url) {
       const cik = cleanText(url.searchParams.get("cik"));
       const filings = await getSecFilings(cik);
       return sendJson(res, 200, { filings, fetchedAt: new Date().toISOString() });
+    }
+
+    if (url.pathname === "/api/stock-price") {
+      const result = await getStockPrice(
+        url.searchParams.get("ticker"),
+        cleanText(url.searchParams.get("range")) || "3y",
+        cleanText(url.searchParams.get("interval")) || "1wk"
+      );
+      return sendJson(res, 200, result);
     }
 
     return sendJson(res, 404, { error: "Unknown API route" });

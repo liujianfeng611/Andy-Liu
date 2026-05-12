@@ -27,6 +27,7 @@ export async function onRequest(context) {
     if (route === "daily-news-localize" && context.request.method === "POST") return localizeDailyNews(context);
     if (route === "fetch-url" && context.request.method === "POST") return fetchUrlResource(context);
     if (route === "open-web" && context.request.method === "GET") return getOpenWeb(url);
+    if (route === "stock-price" && context.request.method === "GET") return getStockPrice(url);
     if (route === "sec" && context.request.method === "GET") return getSec(url);
     return json({ error: "Unknown API route" }, 404);
   } catch (error) {
@@ -732,6 +733,102 @@ async function getOpenWeb(url) {
       });
     }
   }
+}
+
+function safeTicker(value) {
+  return cleanText(value).toUpperCase().replace(/[^A-Z0-9.\-=]/g, "").slice(0, 24);
+}
+
+function fixedNumber(value, digits = 2) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : "";
+}
+
+function movingAverageDelta(history, days, latest) {
+  const rows = history.slice(-days).map((row) => Number(row.close)).filter(Number.isFinite);
+  if (!rows.length || !Number.isFinite(Number(latest))) return "";
+  const average = rows.reduce((sum, value) => sum + value, 0) / rows.length;
+  return fixedNumber(Number(latest) - average, 2);
+}
+
+async function getStockPrice(url) {
+  const ticker = safeTicker(url.searchParams.get("ticker"));
+  const range = cleanText(url.searchParams.get("range")) || "3y";
+  const interval = cleanText(url.searchParams.get("interval")) || "1wk";
+  if (!ticker) return json({ error: "Missing ticker" }, 400);
+
+  const params = new URLSearchParams({
+    range,
+    interval,
+    includePrePost: "false",
+    events: "div,splits"
+  });
+  const data = await fetchJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?${params}`, {
+    accept: "application/json"
+  });
+  const result = data?.chart?.result?.[0];
+  if (!result) {
+    const message = data?.chart?.error?.description || `No quote data for ${ticker}`;
+    return json({ error: message }, 404);
+  }
+
+  const quote = result.indicators?.quote?.[0] || {};
+  const timestamps = result.timestamp || [];
+  const history = timestamps.map((timestamp, index) => ({
+    date: new Date(timestamp * 1000).toISOString(),
+    open: quote.open?.[index] ?? null,
+    high: quote.high?.[index] ?? null,
+    low: quote.low?.[index] ?? null,
+    close: quote.close?.[index] ?? null,
+    volume: quote.volume?.[index] ?? null
+  })).filter((row) => Number.isFinite(Number(row.close)));
+
+  const meta = result.meta || {};
+  const latest = Number(meta.regularMarketPrice ?? history.at(-1)?.close);
+  const previousClose = Number(meta.previousClose ?? history.at(-2)?.close ?? latest);
+  const changeAmount = latest - previousClose;
+  const change = previousClose ? (changeAmount / previousClose) * 100 : 0;
+  const highs = history.map((row) => Number(row.high ?? row.close)).filter(Number.isFinite);
+  const lows = history.map((row) => Number(row.low ?? row.close)).filter(Number.isFinite);
+  const rangeHigh = highs.length ? Math.max(...highs) : latest;
+  const rangeLow = lows.length ? Math.min(...lows) : latest;
+  const rangeChange = history[0]?.close ? ((latest - Number(history[0].close)) / Number(history[0].close)) * 100 : change;
+  const rangePosition = rangeHigh === rangeLow ? 50 : ((latest - rangeLow) / (rangeHigh - rangeLow)) * 100;
+  const distanceFromHigh = rangeHigh ? ((latest - rangeHigh) / rangeHigh) * 100 : 0;
+
+  return json({
+    ticker,
+    price: fixedNumber(latest),
+    change: fixedNumber(change),
+    changeAmount: fixedNumber(changeAmount),
+    open: fixedNumber(meta.regularMarketOpen ?? history.at(-1)?.open),
+    high: fixedNumber(meta.regularMarketDayHigh ?? history.at(-1)?.high ?? rangeHigh),
+    low: fixedNumber(meta.regularMarketDayLow ?? history.at(-1)?.low ?? rangeLow),
+    previousClose: fixedNumber(previousClose),
+    volume: Number(meta.regularMarketVolume ?? history.at(-1)?.volume ?? 0),
+    currency: meta.currency || "",
+    exchange: meta.exchangeName || meta.fullExchangeName || "",
+    marketTime: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toLocaleDateString("zh-CN") : "",
+    range,
+    interval,
+    rangeLow: fixedNumber(rangeLow),
+    rangeHigh: fixedNumber(rangeHigh),
+    rangeChange: fixedNumber(rangeChange),
+    rangePosition: fixedNumber(rangePosition, 1),
+    distanceFromHigh: fixedNumber(distanceFromHigh),
+    ma50Delta: movingAverageDelta(history, 50, latest),
+    ma200Delta: movingAverageDelta(history, 200, latest),
+    history: history.map((row) => ({
+      date: row.date,
+      open: fixedNumber(row.open),
+      high: fixedNumber(row.high),
+      low: fixedNumber(row.low),
+      close: fixedNumber(row.close),
+      volume: Number(row.volume || 0)
+    })),
+    source: "Yahoo Finance",
+    updatedAt: new Date().toISOString()
+  });
 }
 
 async function getSec(url) {

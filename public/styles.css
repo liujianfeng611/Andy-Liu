@@ -1081,6 +1081,40 @@ body.note-reader-mode .main-stage {
   padding: 14px;
 }
 
+.stock-panel-head,
+.stock-panel-head div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stock-panel-head div {
+  justify-content: flex-start;
+}
+
+.stock-panel-head button {
+  border: 1px solid #145f83;
+  border-radius: 8px;
+  background: #0e3b52;
+  color: #8dddff;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.stock-panel-head button:disabled {
+  opacity: 0.6;
+}
+
+.stock-source-line {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  margin-top: 6px;
+}
+
 .price-line {
   display: flex;
   align-items: baseline;
@@ -3610,8 +3644,15 @@ body.light-theme .model-preview-toolbar button.active {
   color: #24211f;
 }
 
+body.light-theme .stock-panel-head button {
+  border-color: #7dd3fc;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
 body.light-theme .stock-stat-row,
 body.light-theme .indicator-row,
+body.light-theme .stock-source-line,
 body.light-theme .range-line,
 body.light-theme .workspace-intro,
 body.light-theme .question-group em,

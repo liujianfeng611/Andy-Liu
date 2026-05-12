@@ -14,6 +14,7 @@ const defaultState = {
   dailyNewsSources: [],
   dailyNewsItems: [],
   dailyNewsCategorySummaries: {},
+  stockPrices: {},
   teamFiles: [],
   folderSearchQuery: "",
   folderPath: [],
@@ -279,6 +280,8 @@ let noteProcessorStatus = "";
 let ideaSaveTimer = null;
 let dailyNewsBusy = false;
 let dailyNewsStatus = "";
+let stockPriceBusy = false;
+let stockPriceStatus = "";
 
 const els = {
   noteStream: document.querySelector("#noteStream"),
@@ -1855,16 +1858,63 @@ function pseudoPrice(company) {
   const seed = String(company.ticker || company.name || "PM").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
   const price = (80 + (seed % 420) + ((seed % 97) / 100)).toFixed(2);
   const change = (((seed % 69) - 30) / 3).toFixed(2);
-  return { price, change };
+  const history = Array.from({ length: 72 }, (_, index) => {
+    const wave = Math.sin((index + seed) / 5) * 22 + Math.cos((index + seed) / 9) * 12;
+    const close = Number(price) * (0.82 + (index / 72) * 0.28 + wave / 700);
+    return {
+      date: new Date(Date.now() - (72 - index) * 86400000).toISOString(),
+      close: Number(close.toFixed(2)),
+      volume: Math.round((seed % 90 + 20) * 1000000 * (0.8 + Math.abs(wave) / 60))
+    };
+  });
+  return {
+    price,
+    change,
+    changeAmount: (Number(price) * Number(change) / 100).toFixed(2),
+    high: (Number(price) * 1.06).toFixed(2),
+    low: (Number(price) * 0.94).toFixed(2),
+    open: (Number(price) * 1.01).toFixed(2),
+    previousClose: (Number(price) * 1.02).toFixed(2),
+    volume: Math.round(Math.abs(Number(price)) * 184000),
+    rangeChange: change,
+    distanceFromHigh: "-26.1",
+    ma50Delta: "+14.4",
+    ma200Delta: "-55.6",
+    history,
+    updatedAt: new Date().toISOString(),
+    source: "示意数据"
+  };
 }
 
-function renderMiniChart(company) {
-  const seed = String(company.ticker || company.name || "chart").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return Array.from({ length: 52 }, (_, index) => {
-    const wave = Math.sin((index + seed) / 5) * 22 + Math.cos((index + seed) / 9) * 12;
-    const height = Math.max(18, Math.min(92, 48 + wave + ((index * seed) % 13)));
-    const up = (index + seed) % 3 !== 0;
-    return `<span class="${up ? "upbar" : "downbar"}" style="height:${height}%"></span>`;
+function companyStockPrice(company) {
+  const ticker = String(company?.ticker || "").toUpperCase();
+  const cached = ticker ? state.stockPrices?.[ticker] : null;
+  if (cached?.price) return cached;
+  return pseudoPrice(company);
+}
+
+function formatVolume(value) {
+  const volume = Number(value || 0);
+  if (!volume) return "—";
+  if (volume >= 100000000) return `${(volume / 100000000).toFixed(2)}亿股`;
+  if (volume >= 10000) return `${Math.round(volume / 10000)}万股`;
+  return `${volume.toLocaleString()}股`;
+}
+
+function renderMiniChart(priceData) {
+  const history = Array.isArray(priceData?.history) ? priceData.history.filter((row) => Number.isFinite(Number(row.close))) : [];
+  const rows = history.length ? history.slice(-72) : pseudoPrice({ ticker: "chart" }).history;
+  const closes = rows.map((row) => Number(row.close));
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const spread = Math.max(1, max - min);
+  return rows.map((row, index) => {
+    const previous = index > 0 ? Number(rows[index - 1].close) : Number(row.open || row.close);
+    const close = Number(row.close);
+    const height = Math.max(8, Math.min(96, 8 + ((close - min) / spread) * 88));
+    const up = close >= previous;
+    const date = row.date ? new Date(row.date).toLocaleDateString("zh-CN") : "";
+    return `<span class="${up ? "upbar" : "downbar"}" title="${escapeHtml(`${date} ${close.toFixed(2)}`)}" style="height:${height}%"></span>`;
   }).join("");
 }
 
@@ -2005,35 +2055,43 @@ function companyModelName(company, industry) {
 
 function renderCompanyHome(ctx) {
   const { company, rows, price, viewItems, selected, selectedSummary, peerCompanies, recentNotes, industry } = ctx;
+  const priceNumber = Number(price.price) || 0;
+  const changeNumber = Number(price.change) || 0;
+  const updatedAt = price.updatedAt ? formatTime(price.updatedAt) : "未更新";
+  const sourceLabel = price.source && price.source !== "示意数据" ? price.source : "点击更新获取行情";
   return `
     <section class="company-grid">
       <article class="stock-panel">
-        <div class="panel-head"><strong>股价图</strong><span>${escapeHtml(company.ticker || "")}</span></div>
+        <div class="panel-head stock-panel-head">
+          <div><strong>股价图</strong><span>${escapeHtml(company.ticker || "")}</span></div>
+          <button data-refresh-stock="${escapeHtml(company.id)}" type="button" ${stockPriceBusy ? "disabled" : ""}>${stockPriceBusy ? "更新中..." : "更新股价"}</button>
+        </div>
+        <div class="stock-source-line">${escapeHtml(sourceLabel)} · ${escapeHtml(updatedAt)}${stockPriceStatus ? ` · ${escapeHtml(stockPriceStatus)}` : ""}</div>
         <div class="stock-toolbar">
           <div><button type="button">3M</button><button type="button">6M</button><button type="button">1Y</button><button class="active" type="button">3Y</button><button type="button">5Y</button></div>
           <div><button type="button">日K</button><button class="active" type="button">周K</button><button type="button">月K</button><button type="button">季K</button></div>
         </div>
         <div class="price-line">
           <strong>${price.price}</strong>
-          <span class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</span>
-          <em>${new Date().toLocaleDateString("zh-CN")}</em>
+          <span class="${changeNumber >= 0 ? "up" : "down"}">${changeNumber >= 0 ? "+" : ""}${price.change}%</span>
+          <em>${price.marketTime ? escapeHtml(price.marketTime) : new Date().toLocaleDateString("zh-CN")}</em>
         </div>
         <div class="stock-stat-row">
-          <span>最高 <strong class="down">${(Number(price.price) * 1.06).toFixed(2)}</strong></span>
-          <span>最低 <strong class="up">${(Number(price.price) * 0.94).toFixed(2)}</strong></span>
-          <span>今开 <strong>${(Number(price.price) * 1.01).toFixed(2)}</strong></span>
-          <span>昨收 <strong>${(Number(price.price) * 1.02).toFixed(2)}</strong></span>
-          <span>成交量 <strong>${(Math.abs(Number(price.price)) * 18.4).toFixed(0)}万股</strong></span>
+          <span>最高 <strong class="down">${escapeHtml(price.high || (priceNumber * 1.06).toFixed(2))}</strong></span>
+          <span>最低 <strong class="up">${escapeHtml(price.low || (priceNumber * 0.94).toFixed(2))}</strong></span>
+          <span>今开 <strong>${escapeHtml(price.open || (priceNumber * 1.01).toFixed(2))}</strong></span>
+          <span>昨收 <strong>${escapeHtml(price.previousClose || (priceNumber * 1.02).toFixed(2))}</strong></span>
+          <span>成交量 <strong>${escapeHtml(formatVolume(price.volume))}</strong></span>
         </div>
         <div class="stock-kpis">
-          <span>区间涨跌 <strong class="${Number(price.change) >= 0 ? "up" : "down"}">${price.change}%</strong></span>
-          <span>距高点 <strong class="down">-26.1%</strong></span>
-          <span>50日均线 <strong class="up">+14.4</strong></span>
-          <span>200日均线 <strong class="down">-55.6</strong></span>
+          <span>区间涨跌 <strong class="${Number(price.rangeChange ?? price.change) >= 0 ? "up" : "down"}">${Number(price.rangeChange ?? price.change) >= 0 ? "+" : ""}${escapeHtml(price.rangeChange ?? price.change)}%</strong></span>
+          <span>距高点 <strong class="${Number(price.distanceFromHigh) >= 0 ? "up" : "down"}">${escapeHtml(price.distanceFromHigh || "-26.1")}%</strong></span>
+          <span>50日均线 <strong class="${Number(price.ma50Delta) >= 0 ? "up" : "down"}">${escapeHtml(price.ma50Delta || "+14.4")}</strong></span>
+          <span>200日均线 <strong class="${Number(price.ma200Delta) >= 0 ? "up" : "down"}">${escapeHtml(price.ma200Delta || "-55.6")}</strong></span>
         </div>
         <div class="indicator-row"><span>指标</span><button class="active" type="button">均线</button><button type="button">成交量</button><button type="button">MACD</button><button type="button">RSI</button></div>
-        <div class="chart-bars">${renderMiniChart(company)}</div>
-        <div class="range-line"><span>Low ${(Number(price.price) * 0.75).toFixed(2)}</span><strong><i style="width:42%"></i></strong><span>High ${(Number(price.price) * 1.35).toFixed(2)}</span></div>
+        <div class="chart-bars">${renderMiniChart(price)}</div>
+        <div class="range-line"><span>Low ${escapeHtml(price.rangeLow || (priceNumber * 0.75).toFixed(2))}</span><strong><i style="width:${Math.max(4, Math.min(96, Number(price.rangePosition || 42)))}%"></i></strong><span>High ${escapeHtml(price.rangeHigh || (priceNumber * 1.35).toFixed(2))}</span></div>
       </article>
 
       <aside class="viewpoint-panel">
@@ -2735,7 +2793,7 @@ function renderCompanyWorkspace() {
   const rows = activeItems();
   const localDocs = companyCloudItems(company.id);
   const evidence = rows.filter((item) => isVisibleMaterial(item)).length;
-  const price = pseudoPrice(company);
+  const price = companyStockPrice(company);
   const industry = inferIndustry(company);
   const modelName = companyModelName(company, industry);
   const viewItems = rows.slice(0, 4);
@@ -4087,6 +4145,29 @@ async function processCurrentNote(task = "analyze") {
   }
 }
 
+async function refreshStockPrice(companyId = state.activeCompanyId) {
+  const company = state.companies.find((row) => row.id === companyId) || activeCompany();
+  const ticker = String(company?.ticker || "").trim().toUpperCase();
+  if (!ticker || stockPriceBusy) return;
+  stockPriceBusy = true;
+  stockPriceStatus = `正在更新 ${ticker}`;
+  render();
+  try {
+    const data = await api(`stock-price?ticker=${encodeURIComponent(ticker)}&range=3y&interval=1wk`);
+    state.stockPrices = {
+      ...(state.stockPrices || {}),
+      [ticker]: data
+    };
+    stockPriceStatus = `已更新 ${ticker}`;
+    saveState();
+  } catch (error) {
+    stockPriceStatus = `更新失败：${error.message || "行情接口不可用"}`;
+  } finally {
+    stockPriceBusy = false;
+    render();
+  }
+}
+
 function saveCurrentNoteIdea({ renderAfter = false } = {}) {
   const item = selectedNoteItem();
   const input = document.querySelector("[data-note-idea-input]");
@@ -4294,6 +4375,11 @@ document.addEventListener("click", (event) => {
   const portfolioImpactNote = event.target.closest("[data-portfolio-impact-note]");
   if (portfolioImpactNote) {
     processCurrentNote("portfolio");
+    return;
+  }
+  const refreshStock = event.target.closest("[data-refresh-stock]");
+  if (refreshStock) {
+    refreshStockPrice(refreshStock.dataset.refreshStock);
     return;
   }
   const uploadTeamFile = event.target.closest("[data-upload-team-file]");
