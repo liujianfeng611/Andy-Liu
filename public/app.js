@@ -17,6 +17,7 @@ const defaultState = {
   stockPrices: {},
   stockChartRange: "3y",
   stockChartInterval: "1wk",
+  stockChartIndicator: "ma",
   teamFiles: [],
   folderSearchQuery: "",
   folderPath: [],
@@ -120,6 +121,13 @@ const stockIntervalOptions = [
   ["1wk", "周K"],
   ["1mo", "月K"],
   ["3mo", "季K"]
+];
+
+const stockIndicatorOptions = [
+  ["ma", "均线"],
+  ["volume", "成交量"],
+  ["macd", "MACD"],
+  ["rsi", "RSI"]
 ];
 
 const dailyNewsSourceCatalog = [
@@ -1911,6 +1919,10 @@ function activeStockInterval() {
   return stockIntervalOptions.some(([id]) => id === state.stockChartInterval) ? state.stockChartInterval : "1wk";
 }
 
+function activeStockIndicator() {
+  return stockIndicatorOptions.some(([id]) => id === state.stockChartIndicator) ? state.stockChartIndicator : "ma";
+}
+
 function stockCacheKey(ticker, range = activeStockRange(), interval = activeStockInterval()) {
   return [String(ticker || "").toUpperCase(), range, interval].join("|");
 }
@@ -1942,21 +1954,157 @@ function formatVolume(value) {
   return `${volume.toLocaleString()}股`;
 }
 
-function renderMiniChart(priceData) {
+function formatChartDate(value, fallback = "") {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return fallback;
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function movingAverageSeries(values, windowSize) {
+  return values.map((value, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    const slice = values.slice(start, index + 1).filter(Number.isFinite);
+    if (slice.length < Math.min(windowSize, 4)) return null;
+    return slice.reduce((sum, row) => sum + row, 0) / slice.length;
+  });
+}
+
+function emaSeries(values, span) {
+  const multiplier = 2 / (span + 1);
+  let ema = null;
+  return values.map((value) => {
+    if (!Number.isFinite(value)) return ema;
+    ema = ema === null ? value : (value - ema) * multiplier + ema;
+    return ema;
+  });
+}
+
+function rsiSeries(values, period = 14) {
+  return values.map((value, index) => {
+    if (index < period) return null;
+    let gains = 0;
+    let losses = 0;
+    for (let offset = index - period + 1; offset <= index; offset += 1) {
+      const delta = values[offset] - values[offset - 1];
+      if (delta >= 0) gains += delta;
+      else losses += Math.abs(delta);
+    }
+    if (!losses) return 100;
+    const rs = gains / losses;
+    return 100 - (100 / (1 + rs));
+  });
+}
+
+function chartPath(values, xForIndex, yForValue) {
+  return values.map((value, index) => {
+    if (!Number.isFinite(value)) return "";
+    return `${index === 0 || !Number.isFinite(values[index - 1]) ? "M" : "L"}${xForIndex(index).toFixed(1)} ${yForValue(value).toFixed(1)}`;
+  }).filter(Boolean).join(" ");
+}
+
+function renderStockChart(priceData, indicator = activeStockIndicator()) {
   const history = Array.isArray(priceData?.history) ? priceData.history.filter((row) => Number.isFinite(Number(row.close))) : [];
   const rows = history.length ? history.slice(-72) : pseudoPrice({ ticker: "chart" }).history;
   const closes = rows.map((row) => Number(row.close));
+  const volumes = rows.map((row) => Number(row.volume || 0));
   const min = Math.min(...closes);
   const max = Math.max(...closes);
   const spread = Math.max(1, max - min);
-  return rows.map((row, index) => {
+  const width = 900;
+  const height = 330;
+  const priceTop = 18;
+  const priceHeight = indicator === "rsi" || indicator === "macd" ? 205 : 235;
+  const volumeTop = priceTop + priceHeight + 14;
+  const volumeHeight = indicator === "rsi" || indicator === "macd" ? 72 : 58;
+  const left = 18;
+  const right = 18;
+  const innerWidth = width - left - right;
+  const maxVolume = Math.max(1, ...volumes);
+  const xForIndex = (index) => left + (rows.length <= 1 ? 0 : (index / (rows.length - 1)) * innerWidth);
+  const yForClose = (value) => priceTop + priceHeight - ((value - min) / spread) * priceHeight;
+  const ma50 = movingAverageSeries(closes, 50);
+  const ma100 = movingAverageSeries(closes, 100);
+  const ma200 = movingAverageSeries(closes, 200);
+  const ema12 = emaSeries(closes, 12);
+  const ema26 = emaSeries(closes, 26);
+  const macd = ema12.map((value, index) => Number.isFinite(value) && Number.isFinite(ema26[index]) ? value - ema26[index] : null);
+  const signal = emaSeries(macd.map((value) => Number.isFinite(value) ? value : 0), 9);
+  const histogram = macd.map((value, index) => Number.isFinite(value) ? value - signal[index] : null);
+  const rsi = rsiSeries(closes);
+  const macdMin = Math.min(-1, ...histogram.filter(Number.isFinite), ...macd.filter(Number.isFinite), ...signal.filter(Number.isFinite));
+  const macdMax = Math.max(1, ...histogram.filter(Number.isFinite), ...macd.filter(Number.isFinite), ...signal.filter(Number.isFinite));
+  const macdSpread = Math.max(1, macdMax - macdMin);
+  const yForMacd = (value) => volumeTop + volumeHeight - ((value - macdMin) / macdSpread) * volumeHeight;
+  const yForRsi = (value) => volumeTop + volumeHeight - (value / 100) * volumeHeight;
+  const barWidth = Math.max(2, Math.min(10, innerWidth / rows.length * 0.58));
+  const dateIndexes = [...new Set([0, Math.floor(rows.length * 0.25), Math.floor(rows.length * 0.5), Math.floor(rows.length * 0.75), rows.length - 1])]
+    .filter((index) => index >= 0 && rows[index]);
+  const priceBars = rows.map((row, index) => {
     const previous = index > 0 ? Number(rows[index - 1].close) : Number(row.open || row.close);
     const close = Number(row.close);
-    const height = Math.max(8, Math.min(96, 8 + ((close - min) / spread) * 88));
     const up = close >= previous;
-    const date = row.date ? new Date(row.date).toLocaleDateString("zh-CN") : "";
-    return `<span class="${up ? "upbar" : "downbar"}" title="${escapeHtml(`${date} ${close.toFixed(2)}`)}" style="height:${height}%"></span>`;
+    const x = xForIndex(index) - barWidth / 2;
+    const y = yForClose(close);
+    const barHeight = Math.max(2, priceTop + priceHeight - y);
+    return `<rect class="${up ? "upbar" : "downbar"}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}"><title>${escapeHtml(`${formatChartDate(row.date)} ${close.toFixed(2)}`)}</title></rect>`;
   }).join("");
+  const volumeBars = rows.map((row, index) => {
+    const previous = index > 0 ? Number(rows[index - 1].close) : Number(row.open || row.close);
+    const close = Number(row.close);
+    const up = close >= previous;
+    const value = Number(row.volume || 0);
+    const barHeight = Math.max(2, (value / maxVolume) * volumeHeight);
+    const x = xForIndex(index) - barWidth / 2;
+    const y = volumeTop + volumeHeight - barHeight;
+    return `<rect class="${up ? "volume-up" : "volume-down"}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}"><title>${escapeHtml(`${formatChartDate(row.date)} 成交量 ${formatVolume(value)}`)}</title></rect>`;
+  }).join("");
+  const indicatorLayer = indicator === "macd"
+    ? `
+      <g class="macd-layer">
+        ${histogram.map((value, index) => {
+          if (!Number.isFinite(value)) return "";
+          const zero = yForMacd(0);
+          const y = yForMacd(value);
+          return `<rect class="${value >= 0 ? "volume-up" : "volume-down"}" x="${(xForIndex(index) - barWidth / 2).toFixed(1)}" y="${Math.min(y, zero).toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(1, Math.abs(zero - y)).toFixed(1)}"></rect>`;
+        }).join("")}
+        <path class="ma50-line" d="${chartPath(macd, xForIndex, yForMacd)}"></path>
+        <path class="ma100-line" d="${chartPath(signal, xForIndex, yForMacd)}"></path>
+      </g>`
+    : indicator === "rsi"
+      ? `
+        <g class="rsi-layer">
+          <line class="chart-guide" x1="${left}" x2="${width - right}" y1="${yForRsi(70).toFixed(1)}" y2="${yForRsi(70).toFixed(1)}"></line>
+          <line class="chart-guide" x1="${left}" x2="${width - right}" y1="${yForRsi(30).toFixed(1)}" y2="${yForRsi(30).toFixed(1)}"></line>
+          <path class="ma200-line" d="${chartPath(rsi, xForIndex, yForRsi)}"></path>
+        </g>`
+      : `<g class="volume-layer">${volumeBars}</g>`;
+  return `
+    <div class="stock-chart">
+      <svg class="stock-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="股价图">
+        <g class="chart-grid">
+          <line x1="${left}" x2="${width - right}" y1="${priceTop}" y2="${priceTop}"></line>
+          <line x1="${left}" x2="${width - right}" y1="${priceTop + priceHeight / 2}" y2="${priceTop + priceHeight / 2}"></line>
+          <line x1="${left}" x2="${width - right}" y1="${priceTop + priceHeight}" y2="${priceTop + priceHeight}"></line>
+        </g>
+        <g class="price-bars">${priceBars}</g>
+        <path class="price-line-path" d="${chartPath(closes, xForIndex, yForClose)}"></path>
+        <path class="ma50-line" d="${chartPath(ma50, xForIndex, yForClose)}"></path>
+        <path class="ma100-line" d="${chartPath(ma100, xForIndex, yForClose)}"></path>
+        <path class="ma200-line" d="${chartPath(ma200, xForIndex, yForClose)}"></path>
+        ${indicatorLayer}
+        <g class="chart-dates">
+          ${dateIndexes.map((index) => `<text x="${xForIndex(index).toFixed(1)}" y="${height - 8}" text-anchor="${index === 0 ? "start" : index === rows.length - 1 ? "end" : "middle"}">${escapeHtml(formatChartDate(rows[index].date))}</text>`).join("")}
+        </g>
+      </svg>
+      <div class="stock-legend">
+        <span><i class="price-dot"></i>收盘价</span>
+        <span><i class="ma50-dot"></i>MA50</span>
+        <span><i class="ma100-dot"></i>MA100</span>
+        <span><i class="ma200-dot"></i>MA200</span>
+        <span><i class="volume-dot"></i>${indicator === "macd" ? "MACD" : indicator === "rsi" ? "RSI" : "成交量"}</span>
+      </div>
+    </div>
+  `;
 }
 
 function monthKey(item) {
@@ -2102,6 +2250,7 @@ function renderCompanyHome(ctx) {
   const sourceLabel = price.source && price.source !== "示意数据" ? price.source : "点击更新获取行情";
   const activeRange = activeStockRange();
   const activeInterval = activeStockInterval();
+  const activeIndicator = activeStockIndicator();
   return `
     <section class="company-grid">
       <article class="stock-panel">
@@ -2130,10 +2279,14 @@ function renderCompanyHome(ctx) {
           <span>区间涨跌 <strong class="${Number(price.rangeChange ?? price.change) >= 0 ? "up" : "down"}">${Number(price.rangeChange ?? price.change) >= 0 ? "+" : ""}${escapeHtml(price.rangeChange ?? price.change)}%</strong></span>
           <span>距高点 <strong class="${Number(price.distanceFromHigh) >= 0 ? "up" : "down"}">${escapeHtml(price.distanceFromHigh || "-26.1")}%</strong></span>
           <span>50日均线 <strong class="${Number(price.ma50Delta) >= 0 ? "up" : "down"}">${escapeHtml(price.ma50Delta || "+14.4")}</strong></span>
+          <span>100日均线 <strong class="${Number(price.ma100Delta) >= 0 ? "up" : "down"}">${escapeHtml(price.ma100Delta || "—")}</strong></span>
           <span>200日均线 <strong class="${Number(price.ma200Delta) >= 0 ? "up" : "down"}">${escapeHtml(price.ma200Delta || "-55.6")}</strong></span>
         </div>
-        <div class="indicator-row"><span>指标</span><button class="active" type="button">均线</button><button type="button">成交量</button><button type="button">MACD</button><button type="button">RSI</button></div>
-        <div class="chart-bars">${renderMiniChart(price)}</div>
+        <div class="indicator-row">
+          <span>指标</span>
+          ${stockIndicatorOptions.map(([id, label]) => `<button class="${id === activeIndicator ? "active" : ""}" data-stock-indicator="${escapeHtml(id)}" type="button">${escapeHtml(label)}</button>`).join("")}
+        </div>
+        ${renderStockChart(price, activeIndicator)}
         <div class="range-line"><span>Low ${escapeHtml(price.rangeLow || (priceNumber * 0.75).toFixed(2))}</span><strong><i style="width:${Math.max(4, Math.min(96, Number(price.rangePosition || 42)))}%"></i></strong><span>High ${escapeHtml(price.rangeHigh || (priceNumber * 1.35).toFixed(2))}</span></div>
       </article>
 
@@ -4220,9 +4373,12 @@ function changeStockChartSetting(kind, value) {
   if (kind === "interval" && stockIntervalOptions.some(([id]) => id === value)) {
     state.stockChartInterval = value;
   }
+  if (kind === "indicator" && stockIndicatorOptions.some(([id]) => id === value)) {
+    state.stockChartIndicator = value;
+  }
   saveState();
   render();
-  refreshStockPrice(state.activeCompanyId);
+  if (kind === "range" || kind === "interval") refreshStockPrice(state.activeCompanyId);
 }
 
 function saveCurrentNoteIdea({ renderAfter = false } = {}) {
@@ -4447,6 +4603,11 @@ document.addEventListener("click", (event) => {
   const stockInterval = event.target.closest("[data-stock-interval]");
   if (stockInterval) {
     changeStockChartSetting("interval", stockInterval.dataset.stockInterval);
+    return;
+  }
+  const stockIndicator = event.target.closest("[data-stock-indicator]");
+  if (stockIndicator) {
+    changeStockChartSetting("indicator", stockIndicator.dataset.stockIndicator);
     return;
   }
   const uploadTeamFile = event.target.closest("[data-upload-team-file]");

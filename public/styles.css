@@ -1162,12 +1162,126 @@ body.note-reader-mode .main-stage {
   opacity: 0.82;
 }
 
+.stock-chart {
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: #030303;
+  padding: 10px 12px 8px;
+}
+
+.stock-chart-svg {
+  display: block;
+  width: 100%;
+  height: 330px;
+}
+
+.chart-grid line,
+.chart-guide {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.price-bars rect {
+  opacity: 0.35;
+}
+
+.price-line-path,
+.ma50-line,
+.ma100-line,
+.ma200-line {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.price-line-path {
+  stroke: #e7ddd2;
+}
+
+.ma50-line {
+  stroke: #ff9f1a;
+}
+
+.ma100-line {
+  stroke: #4aa3ff;
+}
+
+.ma200-line {
+  stroke: #b794ff;
+}
+
+.volume-up,
+.volume-down {
+  opacity: 0.42;
+}
+
+.chart-dates text {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stock-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  padding: 6px 2px 0;
+}
+
+.stock-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stock-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.price-dot {
+  background: #e7ddd2;
+}
+
+.ma50-dot {
+  background: #ff9f1a;
+}
+
+.ma100-dot {
+  background: #4aa3ff;
+}
+
+.ma200-dot {
+  background: #b794ff;
+}
+
+.volume-dot {
+  background: #16a05d;
+}
+
 .upbar {
   background: #16a05d;
+  fill: #16a05d;
 }
 
 .downbar {
   background: #b43333;
+  fill: #b43333;
+}
+
+.volume-up {
+  fill: #16a05d;
+}
+
+.volume-down {
+  fill: #b43333;
 }
 
 .viewpoint-panel textarea {
@@ -3650,14 +3764,33 @@ body.light-theme .stock-panel-head button {
   color: #0369a1;
 }
 
+body.light-theme .stock-chart {
+  border-color: #ddd7d1;
+  background: #ffffff;
+}
+
+body.light-theme .chart-grid line,
+body.light-theme .chart-guide {
+  stroke: rgba(45, 41, 37, 0.12);
+}
+
+body.light-theme .price-line-path {
+  stroke: #24211f;
+}
+
 body.light-theme .stock-stat-row,
 body.light-theme .indicator-row,
 body.light-theme .stock-source-line,
+body.light-theme .stock-legend,
 body.light-theme .range-line,
 body.light-theme .workspace-intro,
 body.light-theme .question-group em,
 body.light-theme .model-match span small {
   color: #7a7169;
+}
+
+body.light-theme .chart-dates text {
+  fill: #7a7169;
 }
 
 body.light-theme .stock-stat-row strong,

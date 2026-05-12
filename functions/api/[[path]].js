@@ -817,6 +817,7 @@ async function getStockPrice(url) {
     rangePosition: fixedNumber(rangePosition, 1),
     distanceFromHigh: fixedNumber(distanceFromHigh),
     ma50Delta: movingAverageDelta(history, 50, latest),
+    ma100Delta: movingAverageDelta(history, 100, latest),
     ma200Delta: movingAverageDelta(history, 200, latest),
     history: history.map((row) => ({
       date: row.date,
