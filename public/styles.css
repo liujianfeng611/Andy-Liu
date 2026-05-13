@@ -2070,6 +2070,13 @@ body.note-reader-mode .main-stage {
   padding: 12px;
 }
 
+.evidence-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .evidence-map strong,
 .evidence-map span,
 .evidence-map em {
@@ -2081,6 +2088,33 @@ body.note-reader-mode .main-stage {
   font-style: normal;
   font-weight: 900;
   margin: 6px 0;
+}
+
+.evidence-keyword-editor {
+  display: block;
+  margin-top: 8px;
+}
+
+.evidence-keyword-editor span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.evidence-keyword-editor input {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #090908;
+  color: #ddd8d1;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 8px;
+}
+
+.evidence-results {
+  margin-top: 8px;
 }
 
 .evidence-map button {
@@ -2096,6 +2130,23 @@ body.note-reader-mode .main-stage {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.evidence-map button strong,
+.evidence-map button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evidence-map button span {
+  color: var(--accent);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.empty-list.compact {
+  padding: 8px 0;
 }
 
 .action-list button {
@@ -4175,6 +4226,12 @@ body.light-theme .thesis-hero p {
 }
 
 body.light-theme .evidence-map button {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #342f2b;
+}
+
+body.light-theme .evidence-keyword-editor input {
   border-color: #ddd7d1;
   background: #ffffff;
   color: #342f2b;

@@ -18,6 +18,7 @@ const defaultState = {
   stockChartRange: "3y",
   stockChartInterval: "1wk",
   stockChartIndicator: "ma",
+  thesisEvidenceKeywords: {},
   teamFiles: [],
   folderSearchQuery: "",
   folderPath: [],
@@ -297,6 +298,15 @@ const queueTemplates = [
   "更新下一次财报/产品/政策催化剂"
 ];
 
+const thesisEvidenceDefaults = [
+  { id: "demand", label: "需求 / 增长", keywords: ["需求拐点", "用户增长", "订单", "预算", "渗透率"] },
+  { id: "pricing", label: "涨价 / 变现", keywords: ["价格", "ARPU", "take rate", "广告加载率", "商业化"] },
+  { id: "margin", label: "利润率 / 经营杠杆", keywords: ["毛利率", "费用率", "成本", "效率", "现金流"] },
+  { id: "competition", label: "竞争 / 份额", keywords: ["竞争格局", "份额", "护城河", "替代风险"] },
+  { id: "risk", label: "反证 / 风险", keywords: ["下调", "放缓", "miss", "监管", "价格松动"] },
+  { id: "catalyst", label: "催化剂", keywords: ["财报", "发布", "合同", "回购", "指引", "事件窗口"] }
+];
+
 let state = loadState();
 let backendStatus = "local";
 const autoRefreshingCompanies = new Set();
@@ -409,6 +419,7 @@ function normalizeState(nextState) {
     .flatMap((group) => group.rows.map((row) => catalogSourcePayload(group.category, row)))
     .filter((source) => !known.has(sourceKey(source)));
   nextState.dailyNewsSources = [...(nextState.dailyNewsSources || []), ...defaults];
+  nextState.thesisEvidenceKeywords = nextState.thesisEvidenceKeywords || {};
   return nextState;
 }
 
@@ -2379,20 +2390,61 @@ function renderNoteWorkbench(item, mainHtml, options = {}) {
   `;
 }
 
+function normalizeEvidenceKeywords(value) {
+  return String(value || "")
+    .split(/[，,、;\n]/)
+    .map((keyword) => keyword.trim())
+    .filter(Boolean)
+    .slice(0, 16);
+}
+
+function thesisEvidenceConfig() {
+  const overrides = state.thesisEvidenceKeywords || {};
+  return thesisEvidenceDefaults.map((bucket) => {
+    const custom = Array.isArray(overrides[bucket.id])
+      ? overrides[bucket.id]
+      : normalizeEvidenceKeywords(overrides[bucket.id]);
+    return {
+      ...bucket,
+      keywords: custom.length ? custom : bucket.keywords
+    };
+  });
+}
+
+function evidenceSearchText(item) {
+  return [
+    item?.title,
+    readableText(item?.summary),
+    materialSource(item),
+    materialView(item),
+    materialTranslation(item),
+    materialIdea(item),
+    item?.source,
+    item?.form,
+    item?.folderId,
+    ...materialTags(item)
+  ].map((part) => String(part || "")).join(" ").toLowerCase();
+}
+
+function matchedEvidenceKeywords(item, keywords) {
+  const haystack = evidenceSearchText(item);
+  return keywords.filter((keyword) => haystack.includes(String(keyword).toLowerCase()));
+}
+
 function evidenceBuckets(rows) {
-  const labels = ["需求 / 增长", "涨价 / 变现", "利润率 / 经营杠杆", "竞争 / 份额", "反证 / 风险", "催化剂"];
-  return labels.map((label) => ({
-    label,
-    detail: {
-      "需求 / 增长": "需求拐点、用户增长、订单、预算、渗透率",
-      "涨价 / 变现": "价格、ARPU、take rate、广告加载率、商业化",
-      "利润率 / 经营杠杆": "毛利率、费用率、成本、效率、现金流",
-      "竞争 / 份额": "竞争格局、份额、护城河、替代风险",
-      "反证 / 风险": "下调、放缓、miss、监管、价格松动",
-      "催化剂": "财报、发布、合同、回购、指引、事件窗口"
-    }[label],
-    rows: rows.filter((item, index) => materialTone(item, index) === label).slice(0, 3)
-  }));
+  const candidates = rows
+    .filter(isVisibleMaterial)
+    .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
+  return thesisEvidenceConfig().map((bucket) => {
+    const matches = candidates
+      .map((item) => ({ item, matchedKeywords: matchedEvidenceKeywords(item, bucket.keywords) }))
+      .filter((entry) => entry.matchedKeywords.length);
+    return {
+      ...bucket,
+      detail: bucket.keywords.join("、"),
+      rows: matches
+    };
+  });
 }
 
 function timelineDateRange(items) {
@@ -2631,6 +2683,7 @@ function renderCompanyModel(ctx) {
 
 function renderCompanyThesis(ctx) {
   const buckets = evidenceBuckets(ctx.rows);
+  const matchedBucketCount = buckets.filter((bucket) => bucket.rows.length).length;
   return `
     <section class="workspace-panel thesis-panel">
       <div class="thesis-hero">
@@ -2643,14 +2696,26 @@ function renderCompanyThesis(ctx) {
         <article><strong>Bear case / 反证</strong><p>材料中已有风险线索，需要逐条确认是否影响核心 thesis。</p></article>
         <article><strong>必须跟踪的变量</strong><p>需求、价格、利润率、竞争、监管和下一次财报窗口。</p></article>
       </div>
-      <div class="panel-head compact-head"><strong>证据地图</strong><span>按标题/摘要粗分</span></div>
+      <div class="panel-head compact-head"><strong>证据地图</strong><span>按关键词扫描笔记 · ${matchedBucketCount}/${buckets.length} 类有命中</span></div>
       <div class="evidence-map">
         ${buckets.map((bucket) => `
           <article>
-            <strong>${escapeHtml(bucket.label)}</strong>
-            <span>${escapeHtml(bucket.detail)}</span>
-            <em>${bucket.rows.length}</em>
-            ${bucket.rows.slice(0, 2).map((item) => `<button data-item-id="${escapeHtml(item.id)}" type="button">${escapeHtml(readableText(item.title))}</button>`).join("")}
+            <div class="evidence-card-head">
+              <strong>${escapeHtml(bucket.label)}</strong>
+              <em>${bucket.rows.length}</em>
+            </div>
+            <label class="evidence-keyword-editor">
+              <span>关键词</span>
+              <input data-evidence-keywords="${escapeHtml(bucket.id)}" value="${escapeHtml(bucket.detail)}" />
+            </label>
+            <div class="evidence-results">
+              ${bucket.rows.slice(0, 4).map(({ item, matchedKeywords }) => `
+                <button data-item-id="${escapeHtml(item.id)}" type="button">
+                  <strong>${escapeHtml(readableText(item.title))}</strong>
+                  <span>${escapeHtml(matchedKeywords.slice(0, 4).join("、"))}</span>
+                </button>
+              `).join("") || '<div class="empty-list compact">没有匹配证据，可以调整关键词。</div>'}
+            </div>
           </article>
         `).join("")}
       </div>
@@ -4815,6 +4880,13 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  const evidenceInput = event.target.closest("[data-evidence-keywords]");
+  if (evidenceInput && event.key === "Enter") {
+    event.preventDefault();
+    evidenceInput.blur();
+    return;
+  }
+
   const sourceInput = event.target.closest("#dailyNewsSourceName, #dailyNewsSourceUrl");
   if (!sourceInput || event.key !== "Enter") return;
   event.preventDefault();
@@ -4907,6 +4979,17 @@ els.folderUploadInput.addEventListener("change", (event) => uploadFilesToCustomF
 els.transcriptFileInput.addEventListener("change", (event) => attachTranscriptFile(event.target.files));
 els.teamUploadInput.addEventListener("change", (event) => uploadTeamFiles(event.target.files));
 document.addEventListener("change", (event) => {
+  const evidenceInput = event.target.closest("[data-evidence-keywords]");
+  if (evidenceInput) {
+    state.thesisEvidenceKeywords = {
+      ...(state.thesisEvidenceKeywords || {}),
+      [evidenceInput.dataset.evidenceKeywords]: normalizeEvidenceKeywords(evidenceInput.value)
+    };
+    saveState();
+    render();
+    return;
+  }
+
   const modelSelect = event.target.closest("#processorModelSelect");
   if (!modelSelect) return;
   try {
