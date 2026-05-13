@@ -942,6 +942,35 @@ function groupedNoteListItems(rows) {
   return groups;
 }
 
+function renderMaterialTypeSections(rows, { compact = false } = {}) {
+  const groupedRows = groupedNoteListItems(rows);
+  return noteCategoryOrder.map((category) => {
+    const categoryRows = groupedRows[category.id] || [];
+    return `
+      <section class="${compact ? "company-note-category compact" : "company-note-category"}">
+        <header class="company-note-category-head">
+          <div>
+            <strong>${escapeHtml(category.label)}</strong>
+            <span>${escapeHtml(category.description)}</span>
+          </div>
+          <em>${categoryRows.length}</em>
+        </header>
+        <div class="material-flow">
+          ${categoryRows.length
+            ? categoryRows.slice(0, compact ? 8 : 24).map((item) => `
+              <button data-item-id="${escapeHtml(item.id)}" type="button">
+                <strong>${escapeHtml(readableText(item.title))}</strong>
+                <span>${escapeHtml(notePrimaryTag(item))} · ${escapeHtml(noteTypeLabel(item))} · ${compactDate(item)}</span>
+                ${compact ? "" : `<p>${escapeHtml(readableText(item.summary || item.sourceText || "").slice(0, 180))}</p>`}
+              </button>
+            `).join("")
+            : `<div class="empty-list">暂无${escapeHtml(category.label)}</div>`}
+        </div>
+      </section>
+    `;
+  }).join("");
+}
+
 function noteStatusLabel(item) {
   if (materialPortfolioImpact(item)) return "待归档";
   if (materialView(item)) return "待数字";
@@ -2539,6 +2568,7 @@ function renderCompanyTimeline(ctx) {
 }
 
 function renderCompanyNotes(ctx) {
+  const materialRows = ctx.rows.filter(isUploadedNote);
   return `
     <section class="workspace-two">
       <article class="workspace-panel">
@@ -2553,15 +2583,9 @@ function renderCompanyNotes(ctx) {
         </div>
       </article>
       <article class="workspace-panel">
-        <div class="panel-head"><strong>公司材料流</strong><span>${ctx.rows.length}</span></div>
-        <div class="material-flow">
-          ${ctx.rows.slice(0, 18).map((item) => `
-            <button data-item-id="${escapeHtml(item.id)}" type="button">
-              <strong>${escapeHtml(readableText(item.title))}</strong>
-              <span>${escapeHtml(item.type)} · ${compactDate(item)}</span>
-              <p>${escapeHtml(readableText(item.summary || item.sourceText || "").slice(0, 180))}</p>
-            </button>
-          `).join("") || '<div class="empty-list">暂无公司材料。</div>'}
+        <div class="panel-head"><strong>材料分类</strong><span>${materialRows.length}</span></div>
+        <div class="company-material-sections">
+          ${materialRows.length ? renderMaterialTypeSections(materialRows) : '<div class="empty-list">暂无公司材料。</div>'}
         </div>
       </article>
     </section>

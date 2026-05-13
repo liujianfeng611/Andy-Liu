@@ -1684,6 +1684,66 @@ body.note-reader-mode .main-stage {
   gap: 12px;
 }
 
+.company-material-sections {
+  display: grid;
+  gap: 12px;
+}
+
+.company-note-category {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #080706;
+  overflow: hidden;
+}
+
+.company-note-category-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line-soft);
+  background: #12100e;
+  padding: 10px 12px;
+}
+
+.company-note-category-head div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.company-note-category-head strong {
+  color: #eee8df;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.company-note-category-head span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-note-category-head em {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #090908;
+  color: var(--muted);
+  min-width: 28px;
+  padding: 2px 8px;
+  text-align: center;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.company-note-category .material-flow {
+  padding: 10px;
+}
+
 .narrative-head,
 .discipline-strip,
 .model-version-card,
@@ -3810,6 +3870,9 @@ body.light-theme .model-signal-row span,
 body.light-theme .stock-toolbar div,
 body.light-theme .indicator-row button,
 body.light-theme .model-preview-toolbar button,
+body.light-theme .company-note-category,
+body.light-theme .company-note-category-head,
+body.light-theme .company-note-category-head em,
 body.light-theme .note-accordion button,
 body.light-theme .material-flow button,
 body.light-theme .action-list button,
@@ -3837,6 +3900,7 @@ body.light-theme .stock-panel,
 body.light-theme .viewpoint-panel,
 body.light-theme .company-source-card,
 body.light-theme .workspace-panel,
+body.light-theme .company-note-category,
 body.light-theme .folder-card-large,
 body.light-theme .daily-news-panel,
 body.light-theme .daily-news-generate,
