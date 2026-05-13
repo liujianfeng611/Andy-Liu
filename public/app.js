@@ -2570,24 +2570,11 @@ function renderCompanyTimeline(ctx) {
 function renderCompanyNotes(ctx) {
   const materialRows = ctx.rows.filter(isUploadedNote);
   return `
-    <section class="workspace-two">
-      <article class="workspace-panel">
-        <div class="panel-head"><strong>观点流</strong><span>${ctx.viewItems.length} 条</span></div>
-        <div class="note-accordion">
-          ${ctx.viewItems.map((item) => `
-            <button data-item-id="${escapeHtml(item.id)}" type="button">
-              <strong>${escapeHtml(readableText(item.title))}</strong>
-              <span>${formatTime(item.publishedAt || item.createdAt)} · ${escapeHtml(item.type)}</span>
-            </button>
-          `).join("") || '<div class="empty-list">暂无观点流。</div>'}
-        </div>
-      </article>
-      <article class="workspace-panel">
-        <div class="panel-head"><strong>材料分类</strong><span>${materialRows.length}</span></div>
-        <div class="company-material-sections">
-          ${materialRows.length ? renderMaterialTypeSections(materialRows) : '<div class="empty-list">暂无公司材料。</div>'}
-        </div>
-      </article>
+    <section class="workspace-panel">
+      <div class="panel-head"><strong>材料分类</strong><span>${materialRows.length}</span></div>
+      <div class="company-material-sections">
+        ${materialRows.length ? renderMaterialTypeSections(materialRows) : '<div class="empty-list">暂无公司材料。</div>'}
+      </div>
     </section>
   `;
 }
