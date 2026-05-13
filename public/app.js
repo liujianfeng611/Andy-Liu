@@ -2101,7 +2101,6 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
           <line x1="${left}" x2="${width - right}" y1="${priceTop + priceHeight}" y2="${priceTop + priceHeight}"></line>
         </g>
         <g class="price-bars">${priceBars}</g>
-        <path class="price-line-path" d="${chartPath(closes, xForIndex, yForClose)}"></path>
         <path class="ma50-line" d="${chartPath(ma50, xForIndex, yForClose)}"></path>
         <path class="ma100-line" d="${chartPath(ma100, xForIndex, yForClose)}"></path>
         <path class="ma200-line" d="${chartPath(ma200, xForIndex, yForClose)}"></path>
@@ -2111,7 +2110,7 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
         </g>
       </svg>
       <div class="stock-legend">
-        <span><i class="price-dot"></i>收盘价</span>
+        <span><i class="candle-dot"></i>蜡烛图</span>
         <span><i class="ma50-dot"></i>MA50</span>
         <span><i class="ma100-dot"></i>MA100</span>
         <span><i class="ma200-dot"></i>MA200</span>

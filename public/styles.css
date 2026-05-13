@@ -1185,7 +1185,6 @@ body.note-reader-mode .main-stage {
   opacity: 0.35;
 }
 
-.price-line-path,
 .ma50-line,
 .ma100-line,
 .ma200-line {
@@ -1193,10 +1192,6 @@ body.note-reader-mode .main-stage {
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.price-line-path {
-  stroke: #e7ddd2;
 }
 
 .ma50-line {
@@ -1246,7 +1241,7 @@ body.note-reader-mode .main-stage {
   display: inline-block;
 }
 
-.price-dot {
+.candle-dot {
   background: #e7ddd2;
 }
 
@@ -3772,10 +3767,6 @@ body.light-theme .stock-chart {
 body.light-theme .chart-grid line,
 body.light-theme .chart-guide {
   stroke: rgba(45, 41, 37, 0.12);
-}
-
-body.light-theme .price-line-path {
-  stroke: #24211f;
 }
 
 body.light-theme .stock-stat-row,
