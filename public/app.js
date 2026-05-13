@@ -2682,7 +2682,8 @@ function renderCompanyModel(ctx) {
 }
 
 function renderCompanyThesis(ctx) {
-  const buckets = evidenceBuckets(ctx.rows);
+  const companyRows = ctx.rows.filter((item) => item.companyId === ctx.company.id);
+  const buckets = evidenceBuckets(companyRows);
   const matchedBucketCount = buckets.filter((bucket) => bucket.rows.length).length;
   return `
     <section class="workspace-panel thesis-panel">
