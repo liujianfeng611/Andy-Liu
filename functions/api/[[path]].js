@@ -22,6 +22,7 @@ export async function onRequest(context) {
     if (route === "companies" && context.request.method === "POST") return upsertCompany(context);
     if (route === "items" && context.request.method === "POST") return upsertItems(context);
     if (route === "items" && context.request.method === "DELETE") return deleteItems(context);
+    if (route === "codex-capture" && context.request.method === "POST") return codexCapture(context);
     if (route === "ask" && context.request.method === "POST") return askPmAgent(context);
     if (route === "process-note" && context.request.method === "POST") return processNote(context);
     if (route === "daily-news-localize" && context.request.method === "POST") return localizeDailyNews(context);
@@ -64,6 +65,23 @@ function cors(body = null, status = 200) {
 
 function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function stableIdPart(value) {
+  let hash = 0;
+  const text = String(value || "");
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function slugId(value, fallback = "codex") {
+  return cleanText(value || fallback)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 64) || fallback;
 }
 
 function cleanModelText(value) {
@@ -235,6 +253,129 @@ async function upsertItems(context) {
     body: JSON.stringify(items.map(toDbItem))
   });
   return json({ items: rows.map(fromDbItem), backend: "supabase" });
+}
+
+function captureToken(context, payload) {
+  return cleanText(context.request.headers.get("x-codex-token"))
+    || cleanText(context.request.headers.get("authorization")).replace(/^bearer\s+/i, "")
+    || cleanText(payload?.token);
+}
+
+function validateCodexCapture(context, payload) {
+  const expected = cleanText(context.env.CODEX_CAPTURE_TOKEN);
+  if (!expected) return null;
+  return captureToken(context, payload) === expected ? null : json({ error: "Codex capture token is missing or invalid" }, 401);
+}
+
+async function resolveCaptureCompany(env, payload) {
+  const requestedId = cleanText(payload.companyId || payload.company_id);
+  const ticker = safeTicker(payload.ticker || payload.symbol);
+  const companyName = cleanText(payload.companyName || payload.company || payload.name);
+  const industry = cleanText(payload.industry || payload.sector);
+
+  if (!hasSupabase(env)) {
+    const id = requestedId || slugId(ticker || companyName || "codex-inbox");
+    return ticker || companyName ? { id, ticker, name: companyName || ticker, industry } : null;
+  }
+
+  const companies = await supabase(env, "companies?select=*&order=created_at.asc");
+  const matched = companies.map(fromDbCompany).find((company) => {
+    const companyTicker = cleanText(company.ticker).toUpperCase();
+    return (requestedId && company.id === requestedId)
+      || (ticker && companyTicker === ticker)
+      || (companyName && cleanText(company.name).toLowerCase() === companyName.toLowerCase());
+  });
+  if (matched) return matched;
+  if (!ticker && !companyName) return null;
+
+  const company = {
+    id: requestedId || slugId(ticker || companyName),
+    name: companyName || ticker,
+    ticker,
+    cik: "",
+    topics: [],
+    notes: "",
+    industry,
+    universeType: "coverage",
+    coverageStatus: "covered"
+  };
+  const rows = await supabase(env, "companies?on_conflict=id", {
+    method: "POST",
+    body: JSON.stringify([toDbCompany(company)])
+  });
+  return rows?.[0] ? fromDbCompany(rows[0]) : company;
+}
+
+function captureItemFromPayload(payload, company, resource = {}) {
+  const now = new Date().toISOString();
+  const url = cleanText(payload.url || resource.url);
+  const title = cleanText(payload.title || resource.title || url || "Codex 抓取笔记");
+  const source = cleanText(payload.source || resource.source || (url ? new URL(url).hostname.replace(/^www\./, "") : "Codex"));
+  const providedText = cleanModelText(payload.text || payload.content || payload.markdown || payload.sourceText || "");
+  const fetchedText = cleanModelText(resource.text || "");
+  const sourceText = (providedText || fetchedText || cleanText(payload.summary || resource.description || `已保存链接：${url}`)).slice(0, 500000);
+  const summary = cleanText(payload.summary || resource.description || sourceText || title).slice(0, 360);
+  const tags = [
+    "Codex抓取",
+    sourceText ? "可读正文" : "链接",
+    ...(Array.isArray(payload.tags) ? payload.tags : cleanText(payload.tags).split(/[，,、;]/))
+  ].map(cleanText).filter(Boolean);
+  const unique = url || `${title}-${source}-${now}`;
+
+  return {
+    id: `codex-${company?.id || "inbox"}-${stableIdPart(unique)}`,
+    companyId: company?.id || null,
+    type: cleanText(payload.type) || "local",
+    folderId: cleanText(payload.folderId) || "cloud",
+    tags: [...new Set(tags)].slice(0, 12),
+    title,
+    source,
+    url,
+    sourceText,
+    viewText: "",
+    createdAt: now,
+    publishedAt: cleanText(payload.publishedAt || payload.published_at) || now,
+    summary,
+    capture: {
+      by: "codex",
+      mode: providedText ? "provided-text" : url ? "url-fetch" : "manual",
+      capturedAt: now,
+      contentType: resource.contentType || ""
+    }
+  };
+}
+
+async function codexCapture(context) {
+  const payload = await context.request.json().catch(() => ({}));
+  const unauthorized = validateCodexCapture(context, payload);
+  if (unauthorized) return unauthorized;
+
+  const url = cleanText(payload.url);
+  const hasProvidedText = Boolean(cleanText(payload.text || payload.content || payload.markdown || payload.sourceText));
+  if (!url && !hasProvidedText) return json({ error: "请提供 url，或直接提供 text/content 正文。" }, 400);
+
+  const company = await resolveCaptureCompany(context.env, payload);
+  let resource = {};
+  if (url && !hasProvidedText) {
+    resource = await fetchUrlPayload(url);
+  } else if (url) {
+    try {
+      resource = await fetchUrlPayload(url);
+    } catch {
+      resource = { url, source: new URL(url).hostname.replace(/^www\./, "") };
+    }
+  }
+
+  const item = captureItemFromPayload(payload, company, resource);
+  if (hasSupabase(context.env)) {
+    const rows = await supabase(context.env, "intel_items?on_conflict=id", {
+      method: "POST",
+      body: JSON.stringify([toDbItem(item)])
+    });
+    return json({ item: rows?.[0] ? fromDbItem(rows[0]) : item, company, backend: "supabase" });
+  }
+
+  return json({ item, company, backend: "local-fallback" });
 }
 
 async function deleteItems(context) {
@@ -641,39 +782,49 @@ async function fetchUrlResource(context) {
   const payload = await context.request.json().catch(() => ({}));
   const target = cleanText(payload.url);
   if (!/^https?:\/\//i.test(target)) return json({ error: "请输入 http 或 https 开头的链接" }, 400);
+  try {
+    return json(await fetchUrlPayload(target));
+  } catch (error) {
+    return json({ error: error.message || "无法读取链接" }, 400);
+  }
+}
+
+async function fetchUrlPayload(targetValue) {
+  const target = cleanText(targetValue);
+  if (!/^https?:\/\//i.test(target)) throw new Error("请输入 http 或 https 开头的链接");
   const response = await fetch(target, {
     headers: {
       "user-agent": "AndyWorkstation/0.1",
       accept: "text/html,text/plain,application/json,text/csv,*/*"
     }
   });
-  if (!response.ok) return json({ error: `无法读取链接：${response.status} ${response.statusText}` }, 400);
+  if (!response.ok) throw new Error(`无法读取链接：${response.status} ${response.statusText}`);
   const contentType = response.headers.get("content-type") || "";
   const source = new URL(target).hostname.replace(/^www\./, "");
   const isReadable = /text|json|xml|csv|html|markdown|javascript/i.test(contentType);
   if (!isReadable) {
-    return json({
+    return {
       title: target.split("/").filter(Boolean).pop() || target,
       source,
       url: target,
       contentType,
       text: "",
       description: `已保存链接。该文件类型暂不直接读取正文：${contentType || "unknown"}`
-    });
+    };
   }
   const raw = (await response.text()).slice(0, 300000);
   const title = raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
   const description = raw.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1]
     || raw.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i)?.[1]
     || "";
-  return json({
+  return {
     title: cleanHtmlText(title || target.split("/").filter(Boolean).pop() || target),
     source,
     url: target,
     contentType,
     description: cleanHtmlText(description),
     text: cleanHtmlText(raw)
-  });
+  };
 }
 
 function decodeXml(value) {

@@ -43,6 +43,23 @@ function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function stableIdPart(value) {
+  let hash = 0;
+  const text = String(value || "");
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function slugId(value, fallback = "codex") {
+  return cleanText(value || fallback)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 64) || fallback;
+}
+
 function cleanModelText(value) {
   return String(value || "")
     .replace(/\r\n?/g, "\n")
@@ -138,6 +155,70 @@ async function fetchUrlResourceLocal(value) {
     description: cleanHtmlText(description),
     text: cleanHtmlText(raw)
   };
+}
+
+function captureItemFromPayload(payload, company, resource = {}) {
+  const now = new Date().toISOString();
+  const url = cleanText(payload.url || resource.url);
+  const title = cleanText(payload.title || resource.title || url || "Codex 抓取笔记");
+  const source = cleanText(payload.source || resource.source || (url ? new URL(url).hostname.replace(/^www\./, "") : "Codex"));
+  const providedText = cleanModelText(payload.text || payload.content || payload.markdown || payload.sourceText || "");
+  const fetchedText = cleanModelText(resource.text || "");
+  const sourceText = (providedText || fetchedText || cleanText(payload.summary || resource.description || `已保存链接：${url}`)).slice(0, 500000);
+  const summary = cleanText(payload.summary || resource.description || sourceText || title).slice(0, 360);
+  const tags = [
+    "Codex抓取",
+    sourceText ? "可读正文" : "链接",
+    ...(Array.isArray(payload.tags) ? payload.tags : cleanText(payload.tags).split(/[，,、;]/))
+  ].map(cleanText).filter(Boolean);
+  const unique = url || `${title}-${source}-${now}`;
+  return {
+    id: `codex-${company?.id || "inbox"}-${stableIdPart(unique)}`,
+    companyId: company?.id || null,
+    type: cleanText(payload.type) || "local",
+    folderId: cleanText(payload.folderId) || "cloud",
+    tags: [...new Set(tags)].slice(0, 12),
+    title,
+    source,
+    url,
+    sourceText,
+    viewText: "",
+    createdAt: now,
+    publishedAt: cleanText(payload.publishedAt || payload.published_at) || now,
+    summary,
+    capture: {
+      by: "codex",
+      mode: providedText ? "provided-text" : url ? "url-fetch" : "manual",
+      capturedAt: now,
+      contentType: resource.contentType || ""
+    }
+  };
+}
+
+async function codexCaptureLocal(payload) {
+  const url = cleanText(payload.url);
+  const hasProvidedText = Boolean(cleanText(payload.text || payload.content || payload.markdown || payload.sourceText));
+  if (!url && !hasProvidedText) throw new Error("请提供 url，或直接提供 text/content 正文。");
+  const ticker = safeTicker(payload.ticker || payload.symbol);
+  const companyName = cleanText(payload.companyName || payload.company || payload.name);
+  const company = ticker || companyName || payload.companyId
+    ? {
+      id: cleanText(payload.companyId) || slugId(ticker || companyName),
+      ticker,
+      name: companyName || ticker
+    }
+    : null;
+  let resource = {};
+  if (url && !hasProvidedText) {
+    resource = await fetchUrlResourceLocal(url);
+  } else if (url) {
+    try {
+      resource = await fetchUrlResourceLocal(url);
+    } catch {
+      resource = { url, source: new URL(url).hostname.replace(/^www\./, "") };
+    }
+  }
+  return { item: captureItemFromPayload(payload, company, resource), company, backend: "node-local" };
 }
 
 function decodeXml(value) {
@@ -334,6 +415,12 @@ async function handleApi(req, res, url) {
     if (url.pathname === "/api/items" && req.method === "POST") {
       const payload = await readJsonBody(req);
       return sendJson(res, 200, { items: payload.items || [], backend: "node-local" });
+    }
+
+    if (url.pathname === "/api/codex-capture" && req.method === "POST") {
+      const payload = await readJsonBody(req);
+      const result = await codexCaptureLocal(payload);
+      return sendJson(res, 200, result);
     }
 
     if (url.pathname === "/api/ask" && req.method === "POST") {

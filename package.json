@@ -7,6 +7,7 @@
     "start": "node server.js",
     "dev": "wrangler pages dev public --compatibility-date=2026-05-05",
     "deploy": "wrangler pages deploy public --project-name=andy-workstation",
+    "capture": "node scripts/capture-note.mjs",
     "check": "node --check server.js && node --check public/app.js && node --check 'functions/api/[[path]].js'"
   },
   "engines": {
