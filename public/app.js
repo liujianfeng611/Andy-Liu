@@ -885,6 +885,63 @@ function noteTypeLabel(item) {
   return item?.type || "笔记";
 }
 
+const noteCategoryOrder = [
+  {
+    id: "company",
+    label: "公司材料",
+    description: "公司官方 press release / SEC filing"
+  },
+  {
+    id: "sellside",
+    label: "卖方研究报告",
+    description: "特定公司的 broker research report"
+  },
+  {
+    id: "expert",
+    label: "专家纪要",
+    description: "第三方专家纪要 / podcast 嘉宾观点"
+  }
+];
+
+function noteCategory(item) {
+  const text = [
+    item?.title,
+    item?.source,
+    item?.form,
+    item?.type,
+    item?.folderId,
+    readableText(item?.summary),
+    ...materialTags(item)
+  ].join(" ").toLowerCase();
+
+  if (
+    item?.type === "filing"
+    || item?.form
+    || /\b(10-k|10-q|8-k|20-f|6-k|s-1|424b|def 14a|proxy)\b/i.test(text)
+    || /sec filing|sec|edgar|annual report|quarterly report|press release|investor relations|shareholder letter|earnings release|公司公告|官方|财报发布|新闻稿|公告/.test(text)
+  ) {
+    return "company";
+  }
+
+  if (
+    /broker|research report|equity research|sell.?side|rating|price target|initiat|upgrade|downgrade|maintain|ubs|goldman|morgan stanley|jpmorgan|jp morgan|bofa|bank of america|barclays|citigroup|citi|deutsche|jefferies|bernstein|mizuho|nomura|daiwa|macquarie|瑞银|高盛|摩根|美银|花旗|德银|杰富瑞|伯恩斯坦|野村|大和|卖方|研报|评级|目标价|券商/.test(text)
+    || (/report|pdf|模型|model/.test(text) && !/podcast|expert|transcript|纪要/.test(text))
+  ) {
+    return "sellside";
+  }
+
+  return "expert";
+}
+
+function groupedNoteListItems(rows) {
+  const groups = Object.fromEntries(noteCategoryOrder.map((category) => [category.id, []]));
+  rows.forEach((item) => {
+    const category = noteCategory(item);
+    groups[category]?.push(item);
+  });
+  return groups;
+}
+
 function noteStatusLabel(item) {
   if (materialPortfolioImpact(item)) return "待归档";
   if (materialView(item)) return "待数字";
@@ -1117,13 +1174,14 @@ function renderNotes() {
     return;
   }
 
-  const rows = noteListItems().slice(0, 40);
+  const rows = noteListItems().slice(0, 80);
+  const groupedRows = groupedNoteListItems(rows);
   const selectedId = state.activeItemId || selectedItem()?.id;
   const emptyText = state.searchQuery
     ? `没有找到匹配“${escapeHtml(state.searchQuery)}”的上传笔记。`
     : `还没有上传笔记。可以在公司页点击“添加材料”上传文件，或在右侧资料入口新增材料。`;
 
-  els.noteStream.innerHTML = rows.map((item) => {
+  const renderNoteRow = (item) => {
     const tags = [
       notePrimaryTag(item),
       noteTypeLabel(item),
@@ -1142,7 +1200,27 @@ function renderNotes() {
       <button class="note-delete" data-delete-item="${escapeHtml(item.id)}" type="button" title="删除笔记">删除</button>
     </article>
   `;
-  }).join("") || `<div class="empty-list">${emptyText}</div>`;
+  };
+
+  els.noteStream.innerHTML = rows.length
+    ? noteCategoryOrder.map((category) => {
+      const categoryRows = groupedRows[category.id] || [];
+      return `
+        <section class="note-category">
+          <header class="note-category-head">
+            <div>
+              <strong>${escapeHtml(category.label)}</strong>
+              <span>${escapeHtml(category.description)}</span>
+            </div>
+            <em>${categoryRows.length}</em>
+          </header>
+          ${categoryRows.length
+            ? categoryRows.map(renderNoteRow).join("")
+            : `<div class="note-category-empty">暂无${escapeHtml(category.label)}</div>`}
+        </section>
+      `;
+    }).join("")
+    : `<div class="empty-list">${emptyText}</div>`;
 }
 
 function renderTeamRail() {

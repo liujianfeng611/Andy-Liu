@@ -378,6 +378,65 @@ body.team-mode .terminal-shell {
   padding: 0;
 }
 
+.note-category {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.note-category-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line-soft);
+  background: #15120f;
+  padding: 12px 18px 10px 22px;
+}
+
+.note-category-head div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.note-category-head strong {
+  color: #eee8df;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.note-category-head span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.note-category-head em {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #090908;
+  color: var(--muted);
+  min-width: 26px;
+  padding: 2px 8px;
+  text-align: center;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.note-category-empty {
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+  padding: 14px 22px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .note-item {
   position: relative;
   display: grid;
@@ -3391,6 +3450,9 @@ body.light-theme .panel-head strong {
 }
 
 body.light-theme .rail-tabs,
+body.light-theme .note-category,
+body.light-theme .note-category-head,
+body.light-theme .note-category-empty,
 body.light-theme .note-item,
 body.light-theme .user-card,
 body.light-theme .card,
@@ -3421,6 +3483,16 @@ body.light-theme .company-metrics article,
 body.light-theme .workspace-tabs {
   background: #fff;
   box-shadow: none;
+}
+
+body.light-theme .note-category-head {
+  background: #fbfbfa;
+}
+
+body.light-theme .note-category-head em {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #7c746c;
 }
 
 body.light-theme .agent-tabs {
