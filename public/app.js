@@ -2016,8 +2016,16 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
   const rows = history.length ? history : pseudoPrice({ ticker: "chart" }).history;
   const closes = rows.map((row) => Number(row.close));
   const volumes = rows.map((row) => Number(row.volume || 0));
-  const min = Math.min(...closes);
-  const max = Math.max(...closes);
+  const priceValues = rows.flatMap((row, index) => {
+    const close = Number(row.close);
+    const previous = index > 0 ? Number(rows[index - 1].close) : close;
+    const open = Number.isFinite(Number(row.open)) ? Number(row.open) : previous;
+    const high = Number.isFinite(Number(row.high)) ? Number(row.high) : Math.max(open, close);
+    const low = Number.isFinite(Number(row.low)) ? Number(row.low) : Math.min(open, close);
+    return [open, high, low, close].filter(Number.isFinite);
+  });
+  const min = Math.min(...priceValues);
+  const max = Math.max(...priceValues);
   const spread = Math.max(1, max - min);
   const width = 900;
   const height = 330;
@@ -2045,7 +2053,7 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
   const macdSpread = Math.max(1, macdMax - macdMin);
   const yForMacd = (value) => volumeTop + volumeHeight - ((value - macdMin) / macdSpread) * volumeHeight;
   const yForRsi = (value) => volumeTop + volumeHeight - (value / 100) * volumeHeight;
-  const barWidth = Math.max(2, Math.min(10, innerWidth / rows.length * 0.58));
+  const barWidth = Math.max(0.8, Math.min(8, innerWidth / rows.length * 0.62));
   const firstDate = new Date(rows[0]?.date || Date.now());
   const lastDate = new Date(rows.at(-1)?.date || Date.now());
   const includeYearInAxis = !Number.isNaN(firstDate.getTime())
@@ -2054,13 +2062,24 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
   const dateIndexes = [...new Set([0, Math.floor(rows.length * 0.25), Math.floor(rows.length * 0.5), Math.floor(rows.length * 0.75), rows.length - 1])]
     .filter((index) => index >= 0 && rows[index]);
   const priceBars = rows.map((row, index) => {
-    const previous = index > 0 ? Number(rows[index - 1].close) : Number(row.open || row.close);
     const close = Number(row.close);
-    const up = close >= previous;
-    const x = xForIndex(index) - barWidth / 2;
-    const y = yForClose(close);
-    const barHeight = Math.max(2, priceTop + priceHeight - y);
-    return `<rect class="${up ? "upbar" : "downbar"}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}"><title>${escapeHtml(`${formatChartDate(row.date)} ${close.toFixed(2)}`)}</title></rect>`;
+    const previous = index > 0 ? Number(rows[index - 1].close) : close;
+    const open = Number.isFinite(Number(row.open)) ? Number(row.open) : previous;
+    const high = Number.isFinite(Number(row.high)) ? Number(row.high) : Math.max(open, close);
+    const low = Number.isFinite(Number(row.low)) ? Number(row.low) : Math.min(open, close);
+    const up = close >= open;
+    const x = xForIndex(index);
+    const bodyX = x - barWidth / 2;
+    const openY = yForClose(open);
+    const closeY = yForClose(close);
+    const highY = yForClose(high);
+    const lowY = yForClose(low);
+    const bodyY = Math.min(openY, closeY);
+    const bodyHeight = Math.max(1.5, Math.abs(closeY - openY));
+    return `
+      <line class="candle-wick ${up ? "upbar" : "downbar"}" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${highY.toFixed(1)}" y2="${lowY.toFixed(1)}"></line>
+      <rect class="candle-body ${up ? "upbar" : "downbar"}" x="${bodyX.toFixed(1)}" y="${bodyY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${bodyHeight.toFixed(1)}"><title>${escapeHtml(`${formatChartDate(row.date)} 开 ${open.toFixed(2)} 高 ${high.toFixed(2)} 低 ${low.toFixed(2)} 收 ${close.toFixed(2)}`)}</title></rect>
+    `;
   }).join("");
   const volumeBars = rows.map((row, index) => {
     const previous = index > 0 ? Number(rows[index - 1].close) : Number(row.open || row.close);

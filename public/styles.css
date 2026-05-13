@@ -1181,8 +1181,14 @@ body.note-reader-mode .main-stage {
   stroke-width: 1;
 }
 
-.price-bars rect {
-  opacity: 0.35;
+.candle-body {
+  opacity: 0.88;
+}
+
+.candle-wick {
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  opacity: 0.9;
 }
 
 .ma50-line,
@@ -1264,11 +1270,13 @@ body.note-reader-mode .main-stage {
 .upbar {
   background: #16a05d;
   fill: #16a05d;
+  stroke: #16a05d;
 }
 
 .downbar {
   background: #b43333;
   fill: #b43333;
+  stroke: #b43333;
 }
 
 .volume-up {
