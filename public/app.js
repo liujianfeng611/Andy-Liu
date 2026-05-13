@@ -1941,7 +1941,7 @@ function companyStockPrice(company) {
   const ticker = String(company?.ticker || "").toUpperCase();
   const range = activeStockRange();
   const interval = activeStockInterval();
-  const cached = ticker ? (state.stockPrices?.[stockCacheKey(ticker, range, interval)] || state.stockPrices?.[ticker]) : null;
+  const cached = ticker ? state.stockPrices?.[stockCacheKey(ticker, range, interval)] : null;
   if (cached?.price) return cached;
   return { ...pseudoPrice(company), range, interval };
 }
@@ -1958,6 +1958,15 @@ function formatChartDate(value, fallback = "") {
   const date = new Date(value || "");
   if (Number.isNaN(date.getTime())) return fallback;
   return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function formatChartAxisDate(value, includeYear = false, fallback = "") {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return fallback;
+  const year = String(date.getFullYear()).slice(2);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return includeYear ? `${year}/${month}/${day}` : `${month}/${day}`;
 }
 
 function movingAverageSeries(values, windowSize) {
@@ -2004,7 +2013,7 @@ function chartPath(values, xForIndex, yForValue) {
 
 function renderStockChart(priceData, indicator = activeStockIndicator()) {
   const history = Array.isArray(priceData?.history) ? priceData.history.filter((row) => Number.isFinite(Number(row.close))) : [];
-  const rows = history.length ? history.slice(-72) : pseudoPrice({ ticker: "chart" }).history;
+  const rows = history.length ? history : pseudoPrice({ ticker: "chart" }).history;
   const closes = rows.map((row) => Number(row.close));
   const volumes = rows.map((row) => Number(row.volume || 0));
   const min = Math.min(...closes);
@@ -2037,6 +2046,11 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
   const yForMacd = (value) => volumeTop + volumeHeight - ((value - macdMin) / macdSpread) * volumeHeight;
   const yForRsi = (value) => volumeTop + volumeHeight - (value / 100) * volumeHeight;
   const barWidth = Math.max(2, Math.min(10, innerWidth / rows.length * 0.58));
+  const firstDate = new Date(rows[0]?.date || Date.now());
+  const lastDate = new Date(rows.at(-1)?.date || Date.now());
+  const includeYearInAxis = !Number.isNaN(firstDate.getTime())
+    && !Number.isNaN(lastDate.getTime())
+    && (lastDate - firstDate > 330 * 86400000 || firstDate.getFullYear() !== lastDate.getFullYear());
   const dateIndexes = [...new Set([0, Math.floor(rows.length * 0.25), Math.floor(rows.length * 0.5), Math.floor(rows.length * 0.75), rows.length - 1])]
     .filter((index) => index >= 0 && rows[index]);
   const priceBars = rows.map((row, index) => {
@@ -2093,7 +2107,7 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
         <path class="ma200-line" d="${chartPath(ma200, xForIndex, yForClose)}"></path>
         ${indicatorLayer}
         <g class="chart-dates">
-          ${dateIndexes.map((index) => `<text x="${xForIndex(index).toFixed(1)}" y="${height - 8}" text-anchor="${index === 0 ? "start" : index === rows.length - 1 ? "end" : "middle"}">${escapeHtml(formatChartDate(rows[index].date))}</text>`).join("")}
+          ${dateIndexes.map((index) => `<text x="${xForIndex(index).toFixed(1)}" y="${height - 8}" text-anchor="${index === 0 ? "start" : index === rows.length - 1 ? "end" : "middle"}">${escapeHtml(formatChartAxisDate(rows[index].date, includeYearInAxis))}</text>`).join("")}
         </g>
       </svg>
       <div class="stock-legend">
