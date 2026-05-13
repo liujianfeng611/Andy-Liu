@@ -2011,9 +2011,37 @@ function chartPath(values, xForIndex, yForValue) {
   }).filter(Boolean).join(" ");
 }
 
+function compressChartRows(rows, maxPoints = 128) {
+  if (rows.length <= maxPoints) return rows;
+  const bucketSize = Math.ceil(rows.length / maxPoints);
+  const compressed = [];
+  for (let index = 0; index < rows.length; index += bucketSize) {
+    const bucket = rows.slice(index, index + bucketSize);
+    const first = bucket[0] || {};
+    const last = bucket.at(-1) || first;
+    const open = Number(first.open ?? first.close);
+    const close = Number(last.close ?? last.open);
+    const high = Math.max(...bucket.map((row) => Number(row.high ?? row.close)).filter(Number.isFinite));
+    const low = Math.min(...bucket.map((row) => Number(row.low ?? row.close)).filter(Number.isFinite));
+    const volume = bucket.reduce((sum, row) => sum + Number(row.volume || 0), 0);
+    compressed.push({
+      ...last,
+      date: last.date || first.date,
+      startDate: first.date,
+      open: Number.isFinite(open) ? open : close,
+      high: Number.isFinite(high) ? high : Math.max(open, close),
+      low: Number.isFinite(low) ? low : Math.min(open, close),
+      close,
+      volume
+    });
+  }
+  return compressed;
+}
+
 function renderStockChart(priceData, indicator = activeStockIndicator()) {
   const history = Array.isArray(priceData?.history) ? priceData.history.filter((row) => Number.isFinite(Number(row.close))) : [];
-  const rows = history.length ? history : pseudoPrice({ ticker: "chart" }).history;
+  const rawRows = history.length ? history : pseudoPrice({ ticker: "chart" }).history;
+  const rows = compressChartRows(rawRows);
   const closes = rows.map((row) => Number(row.close));
   const volumes = rows.map((row) => Number(row.volume || 0));
   const priceValues = rows.flatMap((row, index) => {
@@ -2030,10 +2058,10 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
   const width = 900;
   const height = 330;
   const priceTop = 18;
-  const priceHeight = indicator === "rsi" || indicator === "macd" ? 205 : 235;
-  const volumeTop = priceTop + priceHeight + 14;
-  const volumeHeight = indicator === "rsi" || indicator === "macd" ? 72 : 58;
-  const left = 18;
+  const priceHeight = indicator === "rsi" || indicator === "macd" ? 202 : 226;
+  const volumeTop = priceTop + priceHeight + 20;
+  const volumeHeight = indicator === "rsi" || indicator === "macd" ? 74 : 60;
+  const left = 58;
   const right = 18;
   const innerWidth = width - left - right;
   const maxVolume = Math.max(1, ...volumes);
@@ -2053,12 +2081,16 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
   const macdSpread = Math.max(1, macdMax - macdMin);
   const yForMacd = (value) => volumeTop + volumeHeight - ((value - macdMin) / macdSpread) * volumeHeight;
   const yForRsi = (value) => volumeTop + volumeHeight - (value / 100) * volumeHeight;
-  const barWidth = Math.max(0.8, Math.min(8, innerWidth / rows.length * 0.62));
+  const barWidth = Math.max(3, Math.min(9, innerWidth / rows.length * 0.62));
   const firstDate = new Date(rows[0]?.date || Date.now());
   const lastDate = new Date(rows.at(-1)?.date || Date.now());
   const includeYearInAxis = !Number.isNaN(firstDate.getTime())
     && !Number.isNaN(lastDate.getTime())
     && (lastDate - firstDate > 330 * 86400000 || firstDate.getFullYear() !== lastDate.getFullYear());
+  const priceTicks = Array.from({ length: 5 }, (_, index) => {
+    const value = min + ((max - min) * (4 - index)) / 4;
+    return { value, y: yForClose(value) };
+  });
   const dateIndexes = [...new Set([0, Math.floor(rows.length * 0.25), Math.floor(rows.length * 0.5), Math.floor(rows.length * 0.75), rows.length - 1])]
     .filter((index) => index >= 0 && rows[index]);
   const priceBars = rows.map((row, index) => {
@@ -2076,9 +2108,12 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
     const lowY = yForClose(low);
     const bodyY = Math.min(openY, closeY);
     const bodyHeight = Math.max(1.5, Math.abs(closeY - openY));
+    const titleDate = row.startDate && row.startDate !== row.date
+      ? `${formatChartDate(row.startDate)}-${formatChartDate(row.date)}`
+      : formatChartDate(row.date);
     return `
       <line class="candle-wick ${up ? "upbar" : "downbar"}" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${highY.toFixed(1)}" y2="${lowY.toFixed(1)}"></line>
-      <rect class="candle-body ${up ? "upbar" : "downbar"}" x="${bodyX.toFixed(1)}" y="${bodyY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${bodyHeight.toFixed(1)}"><title>${escapeHtml(`${formatChartDate(row.date)} 开 ${open.toFixed(2)} 高 ${high.toFixed(2)} 低 ${low.toFixed(2)} 收 ${close.toFixed(2)}`)}</title></rect>
+      <rect class="candle-body ${up ? "upbar" : "downbar"}" x="${bodyX.toFixed(1)}" y="${bodyY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${bodyHeight.toFixed(1)}"><title>${escapeHtml(`${titleDate} 开 ${open.toFixed(2)} 高 ${high.toFixed(2)} 低 ${low.toFixed(2)} 收 ${close.toFixed(2)}`)}</title></rect>
     `;
   }).join("");
   const volumeBars = rows.map((row, index) => {
@@ -2115,9 +2150,14 @@ function renderStockChart(priceData, indicator = activeStockIndicator()) {
     <div class="stock-chart">
       <svg class="stock-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="股价图">
         <g class="chart-grid">
-          <line x1="${left}" x2="${width - right}" y1="${priceTop}" y2="${priceTop}"></line>
-          <line x1="${left}" x2="${width - right}" y1="${priceTop + priceHeight / 2}" y2="${priceTop + priceHeight / 2}"></line>
-          <line x1="${left}" x2="${width - right}" y1="${priceTop + priceHeight}" y2="${priceTop + priceHeight}"></line>
+          ${priceTicks.map((tick) => `<line x1="${left}" x2="${width - right}" y1="${tick.y.toFixed(1)}" y2="${tick.y.toFixed(1)}"></line>`).join("")}
+          <line class="volume-divider" x1="${left}" x2="${width - right}" y1="${volumeTop - 8}" y2="${volumeTop - 8}"></line>
+        </g>
+        <g class="price-axis">
+          <line x1="${left}" x2="${left}" y1="${priceTop}" y2="${priceTop + priceHeight}"></line>
+          ${priceTicks.map((tick) => `
+            <text x="${left - 8}" y="${(tick.y + 4).toFixed(1)}" text-anchor="end">${escapeHtml(tick.value.toFixed(2))}</text>
+          `).join("")}
         </g>
         <g class="price-bars">${priceBars}</g>
         <path class="ma50-line" d="${chartPath(ma50, xForIndex, yForClose)}"></path>
