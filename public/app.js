@@ -485,6 +485,10 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function compactText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
 function readableText(value) {
   const text = String(value || "");
   const doc = new DOMParser().parseFromString(text, "text/html");
@@ -2837,7 +2841,7 @@ function renderCompanyQuestions(ctx) {
 
 function renderCompanyDeep(ctx) {
   const answers = ctx.company.deepResearchAnswers || {};
-  const completed = deepResearchChecklist.filter((_, index) => cleanText(answers[`q${index + 1}`])).length;
+  const completed = deepResearchChecklist.filter((_, index) => compactText(answers[`q${index + 1}`])).length;
   const focus = ctx.company.deepResearchFocus || "";
   const companyRows = ctx.rows.filter((item) => item.companyId === ctx.company.id);
   const source = buildDeepResearchSource(ctx.company, companyRows, focus, answers);
@@ -4726,7 +4730,7 @@ async function processCompanyDeepResearch() {
     const generated = parsed.answers || {};
     company.deepResearchAnswers = {
       ...answers,
-      ...Object.fromEntries(Object.entries(generated).filter(([, value]) => cleanText(value)))
+      ...Object.fromEntries(Object.entries(generated).filter(([, value]) => compactText(value)))
     };
     company.deepResearchProcessor = {
       model: model.id,
