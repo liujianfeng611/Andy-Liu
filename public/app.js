@@ -307,12 +307,52 @@ const thesisEvidenceDefaults = [
   { id: "catalyst", label: "催化剂", keywords: ["财报", "发布", "合同", "回购", "指引", "事件窗口"] }
 ];
 
+const deepResearchChecklist = [
+  "Describe how the business operates",
+  "How does the business make money?",
+  "How has the business evolved over time?",
+  "Who is the core customer of the business and is the customer base concentrated or diversified?",
+  "Is it easy or difficult to convince customers to buy the products or services?",
+  "What is the customer retention rate for the business?",
+  "What pain does the business alleviate for the customer?",
+  "To what degree is the customer dependent on the products or services from the business? How big do the products or services from the business cost its customers?",
+  "Does the business have a sustainable competitive advantage and what is its source?",
+  "Does the business possess the ability to raise prices without losing customers?",
+  "Does the business operate in a good or bad industry?",
+  "How has the industry evolved over time?",
+  "What is the competitive landscape, and how intense is the competition?",
+  "What type of relationship does the business have with its suppliers?",
+  "Is the industry experiencing a paradigm shift on demand/supply side currently? If yes, how does this shift reshape the industry over the next 3-5 years?",
+  "What are the operating metrics of the business that you need to monitor and why?",
+  "What are the key risks the business faces?",
+  "How does inflation affect the business?",
+  "Is the business's balance sheet strong or weak?",
+  "What is the return on invested capital for the business? How do you foresee this will change over the next 3-5 years and what are the major sources of this change?",
+  "Are the accounting standards that management uses conservative or liberal?",
+  "Does the business generate revenues that are recurring or from one-off transactions?",
+  "To what degree is the business cyclical, countercyclical, or recession-resistant?",
+  "To what degree does operating leverage impact the earnings of the business?",
+  "How does working capital impact the cash flows of the business?",
+  "Does the business have high or low capital-expenditure requirements?",
+  "What type of manager is leading the company?",
+  "What are the effects on the business of bringing in outside management?",
+  "How did the manager rise to lead the business?",
+  "How are senior managers compensated, and how did they gain their ownership interest?",
+  "Have the managers been buying or selling the stock?",
+  "Is the business managed in a centralized or decentralized way?",
+  "Does management value its employees?",
+  "Does the management team focus on cutting unnecessary costs?",
+  "Are the CEO and CFO disciplined in making capital allocation decisions?",
+  "Does management think independently and remain unswayed by what others in their industry are doing?"
+];
+
 let state = loadState();
 let backendStatus = "local";
 const autoRefreshingCompanies = new Set();
 let noteProcessorBusy = false;
 let noteProcessorStatus = "";
 let ideaSaveTimer = null;
+let deepResearchSaveTimer = null;
 let dailyNewsBusy = false;
 let dailyNewsStatus = "";
 let stockPriceBusy = false;
@@ -2795,14 +2835,37 @@ function renderCompanyQuestions(ctx) {
 }
 
 function renderCompanyDeep(ctx) {
+  const answers = ctx.company.deepResearchAnswers || {};
+  const completed = deepResearchChecklist.filter((_, index) => cleanText(answers[`q${index + 1}`])).length;
+  const focus = ctx.company.deepResearchFocus || "";
   return `
     <section class="workspace-panel deep-panel">
-      <div class="panel-head"><strong>深研任务台</strong><span>把材料转成决策</span></div>
-      <div class="deep-grid">
-        <article><strong>1. 核心变量</strong><p>把 ${ctx.company.ticker || ctx.company.name} 的主线拆成 3 个可验证变量。</p></article>
-        <article><strong>2. 多空证据</strong><p>从 ${ctx.evidence} 条材料里提取支持、反证、待确认。</p></article>
-        <article><strong>3. 模型敏感性</strong><p>把收入、利润率、估值倍数做成 bull/base/bear。</p></article>
-        <article><strong>4. 行动建议</strong><p>输出加仓、减仓、对冲、观察的触发条件。</p></article>
+      <div class="panel-head"><strong>深研清单</strong><span>${completed}/${deepResearchChecklist.length} 已记录</span></div>
+      <div class="deep-research-brief">
+        <div>
+          <span>公司</span>
+          <strong>${escapeHtml(ctx.company.name || ctx.company.ticker)}</strong>
+          <em>${escapeHtml(ctx.company.ticker || "单公司深研")}</em>
+        </div>
+        <label>
+          <span>本次特别关注</span>
+          <textarea data-deep-focus placeholder="例如：AWS 利润率、AI capex 对零售现金流的挤压、广告 take rate、管理层资本配置...">${escapeHtml(focus)}</textarea>
+        </label>
+      </div>
+      <div class="deep-checklist">
+        ${deepResearchChecklist.map((question, index) => {
+          const number = index + 1;
+          const answer = answers[`q${number}`] || "";
+          return `
+            <article class="deep-check-item ${answer ? "completed" : ""}">
+              <div class="deep-question">
+                <em>${number}</em>
+                <strong>${escapeHtml(question)}</strong>
+              </div>
+              <textarea data-deep-answer="${number}" placeholder="记录 ${escapeHtml(ctx.company.ticker || ctx.company.name)} 在这一项上的事实、判断、证据和待验证问题...">${escapeHtml(answer)}</textarea>
+            </article>
+          `;
+        }).join("")}
       </div>
     </section>
   `;
@@ -4622,6 +4685,20 @@ function saveCurrentNoteIdea({ renderAfter = false } = {}) {
   if (renderAfter) render();
 }
 
+function saveDeepResearchDraft({ renderAfter = false } = {}) {
+  const company = activeCompany();
+  if (!company) return;
+  const focusInput = document.querySelector("[data-deep-focus]");
+  if (focusInput) company.deepResearchFocus = focusInput.value;
+  company.deepResearchAnswers = company.deepResearchAnswers || {};
+  document.querySelectorAll("[data-deep-answer]").forEach((input) => {
+    company.deepResearchAnswers[`q${input.dataset.deepAnswer}`] = input.value;
+  });
+  saveState();
+  persistCompany(company);
+  if (renderAfter) render();
+}
+
 function deleteItem(itemId) {
   const item = state.items.find((row) => row.id === itemId);
   if (!item) return;
@@ -4682,6 +4759,7 @@ document.addEventListener("click", (event) => {
   }
   const companyTab = event.target.closest("[data-company-tab]");
   if (companyTab) {
+    if (document.querySelector("[data-deep-focus], [data-deep-answer]")) saveDeepResearchDraft();
     state.companyWorkspaceTab = companyTab.dataset.companyTab;
     state.readerMode = "company";
     saveState();
@@ -4862,6 +4940,13 @@ document.addEventListener("input", (event) => {
     saveState();
     renderCloudFolders();
     renderFolderBoard();
+    return;
+  }
+
+  const deepInput = event.target.closest("[data-deep-focus], [data-deep-answer]");
+  if (deepInput) {
+    window.clearTimeout(deepResearchSaveTimer);
+    deepResearchSaveTimer = window.setTimeout(() => saveDeepResearchDraft(), 900);
     return;
   }
 

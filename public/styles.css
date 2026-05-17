@@ -2053,6 +2053,103 @@ body.note-reader-mode .main-stage {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.deep-research-brief {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.deep-research-brief > div,
+.deep-research-brief label,
+.deep-check-item {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: #0a0908;
+  padding: 12px;
+}
+
+.deep-research-brief span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.deep-research-brief strong {
+  display: block;
+  font-size: 20px;
+}
+
+.deep-research-brief em {
+  display: block;
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 900;
+  margin-top: 6px;
+}
+
+.deep-research-brief textarea,
+.deep-check-item textarea {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: #030303;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.deep-research-brief textarea {
+  min-height: 72px;
+  padding: 10px;
+}
+
+.deep-checklist {
+  display: grid;
+  gap: 10px;
+}
+
+.deep-check-item {
+  display: grid;
+  grid-template-columns: minmax(220px, 34%) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.deep-check-item.completed {
+  border-color: rgba(49, 220, 166, 0.35);
+}
+
+.deep-question {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.deep-question em {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: #2b2622;
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.deep-question strong {
+  line-height: 1.35;
+}
+
+.deep-check-item textarea {
+  min-height: 92px;
+  padding: 10px;
+}
+
 .thesis-grid article,
 .deep-grid article,
 .continuous-grid article {
@@ -3930,6 +4027,9 @@ body.light-theme .action-list button,
 body.light-theme .question-list label,
 body.light-theme .question-group,
 body.light-theme .question-group label,
+body.light-theme .deep-research-brief > div,
+body.light-theme .deep-research-brief label,
+body.light-theme .deep-check-item,
 body.light-theme .model-match,
 body.light-theme .model-match span,
 body.light-theme .thesis-grid article,
@@ -3945,6 +4045,18 @@ body.light-theme .daily-news-card-actions button {
   border-color: #ddd7d1;
   background: #ffffff;
   color: #342f2b;
+}
+
+body.light-theme .deep-research-brief textarea,
+body.light-theme .deep-check-item textarea {
+  border-color: #ddd7d1;
+  background: #ffffff;
+  color: #27221f;
+}
+
+body.light-theme .deep-question em {
+  background: #f1ede8;
+  color: #0b83c8;
 }
 
 body.light-theme .stock-panel,
