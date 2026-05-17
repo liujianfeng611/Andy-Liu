@@ -102,6 +102,7 @@ const noteReaderTabs = [
 const noteProcessorModels = [
   { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite", provider: "google" },
   { id: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview", provider: "google" },
+  { id: "deep-research-pro-preview-12-2025", label: "Gemini Deep Research", provider: "google-deep-research" },
   { id: "gpt-5.5", label: "GPT 5.5", provider: "openai" },
   { id: "gpt-5.4-mini", label: "GPT 5.4 Mini", provider: "openai" },
   { id: "glm-5.1", label: "GLM 5.1", provider: "glm" },

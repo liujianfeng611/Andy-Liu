@@ -637,6 +637,7 @@ function noteProcessPrompt(title, source, task = "analyze", options = {}) {
 function envKeyForProvider(provider) {
   return {
     google: "GOOGLE_AI_API_KEY",
+    "google-deep-research": "GOOGLE_AI_API_KEY",
     openai: "OPENAI_API_KEY",
     glm: "GLM_API_KEY",
     minimax: "MINIMAX_API_KEY",
@@ -660,7 +661,9 @@ async function processNoteLocal(payload) {
     questions: payload.questions || [],
     existingAnswers: payload.existingAnswers || {}
   });
-  const result = provider === "google"
+  const result = provider === "google-deep-research"
+    ? await callGoogleDeepResearch(apiKey, model, prompt)
+    : provider === "google"
     ? await callGoogleModel(apiKey, model, prompt)
     : provider === "openai"
       ? await callOpenAiResponses(apiKey, model, prompt, process.env.OPENAI_BASE_URL)
@@ -687,6 +690,55 @@ async function callGoogleModel(apiKey, model, prompt) {
   if (!response.ok) throw new Error(`Google AI ${response.status}: ${await response.text().then(readableProviderError)}`);
   const data = await response.json();
   return cleanModelText(data.candidates?.[0]?.content?.parts?.map((part) => part.text).join("\n")) || "模型暂无返回。";
+}
+
+function collectDeepResearchText(value) {
+  if (!value || typeof value !== "object") return "";
+  const pieces = [];
+  const visit = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (typeof node.text === "string") pieces.push(node.text);
+    if (typeof node.output_text === "string") pieces.push(node.output_text);
+    if (typeof node.content === "string") pieces.push(node.content);
+    if (typeof node.delta === "string") pieces.push(node.delta);
+    Object.values(node).forEach((child) => {
+      if (Array.isArray(child)) child.forEach(visit);
+      else if (child && typeof child === "object") visit(child);
+    });
+  };
+  visit(value);
+  return pieces.join("\n");
+}
+
+async function callGoogleDeepResearch(apiKey, agent, prompt) {
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions?alt=sse", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      input: prompt,
+      agent,
+      background: true,
+      stream: true,
+      agent_config: {
+        type: "deep-research",
+        thinking_summaries: "auto"
+      }
+    })
+  });
+  if (!response.ok) throw new Error(`Gemini Deep Research ${response.status}: ${await response.text().then(readableProviderError)}`);
+  const sse = await response.text();
+  const chunks = sse
+    .split(/\n\n+/)
+    .map((block) => block.split("\n").filter((line) => line.startsWith("data:")).map((line) => line.replace(/^data:\s*/, "")).join("\n"))
+    .filter(Boolean);
+  const text = chunks.map((chunk) => {
+    try {
+      return collectDeepResearchText(JSON.parse(chunk));
+    } catch {
+      return "";
+    }
+  }).filter(Boolean).join("\n");
+  return cleanModelText(text) || cleanModelText(sse) || "Gemini Deep Research 暂无返回。";
 }
 
 async function callOpenAiResponses(apiKey, model, prompt, baseUrl = "https://api.openai.com/v1") {
