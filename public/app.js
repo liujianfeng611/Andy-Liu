@@ -697,6 +697,7 @@ async function syncFromBackend() {
         activeCompanyId: state.activeCompanyId || data.companies[0].id,
         lastFetchedAt: data.lastFetchedAt || state.lastFetchedAt
       };
+      autoArchiveItemsToCompanies({ persist: true });
       if (!state.companies.some((company) => company.id === state.activeCompanyId)) {
         state.activeCompanyId = state.companies[0].id;
       }
@@ -750,7 +751,7 @@ function activeCompany() {
 function activeItems() {
   const activeId = activeCompany().id;
   return state.items
-    .filter((item) => item.companyId === activeId || !item.companyId)
+    .filter((item) => item.companyId === activeId)
     .sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt)));
 }
 
@@ -867,7 +868,7 @@ function filteredItems() {
   const activeId = activeCompany().id;
   return state.items
     .filter(isVisibleMaterial)
-    .filter((item) => item.companyId === activeId || !item.companyId)
+    .filter((item) => item.companyId === activeId)
     .filter((item) => {
       if (!query) return true;
       const haystack = [
@@ -890,6 +891,90 @@ function itemCompany(item) {
   return state.companies.find((company) => company.id === item.companyId) || null;
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function compactCompanyMatchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[\u2019']/g, "")
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function firstNoteParagraph(item) {
+  const raw = [
+    item?.sourceText,
+    item?.rawText,
+    item?.summary
+  ].filter(Boolean).join("\n\n");
+  return cleanTranscriptText(raw).split(/\n\s*\n|\n/).find(Boolean)?.slice(0, 900) || "";
+}
+
+function companyMatchTerms(company) {
+  const terms = [];
+  const ticker = String(company?.ticker || "").trim().toUpperCase();
+  if (ticker && ticker.length >= 2 && !["AI", "US", "CN", "JP", "HK"].includes(ticker)) {
+    terms.push({ kind: "ticker", value: ticker });
+  }
+  const names = [
+    company?.name,
+    String(company?.name || "")
+      .replace(/\b(incorporated|inc|corporation|corp|company|co|limited|ltd|plc|holdings?|group|class|cl|adr|ads|ord|rep|warrant|proxy|com)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  ];
+  names.forEach((name) => {
+    const value = compactCompanyMatchText(name);
+    if (value && value.length >= 4 && !["software", "cloud", "global", "internet", "financial", "technology"].includes(value)) {
+      terms.push({ kind: "name", value });
+    }
+  });
+  return terms;
+}
+
+function noteCompanyMatchText(item) {
+  return compactCompanyMatchText([
+    item?.title,
+    firstNoteParagraph(item)
+  ].filter(Boolean).join(" "));
+}
+
+function noteMentionsCompany(item, company) {
+  const haystack = noteCompanyMatchText(item);
+  const raw = [item?.title, firstNoteParagraph(item)].filter(Boolean).join(" ");
+  return companyMatchTerms(company).some((term) => {
+    if (term.kind === "ticker") {
+      return new RegExp(`(^|[^A-Z0-9])${escapeRegExp(term.value)}([^A-Z0-9]|$)`, "i").test(raw);
+    }
+    return haystack.includes(term.value);
+  });
+}
+
+function inferCompanyForItem(item) {
+  if (!item) return null;
+  const matches = state.companies.filter((company) => noteMentionsCompany(item, company));
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function autoArchiveItemsToCompanies({ persist = false } = {}) {
+  const changed = [];
+  state.items.forEach((item) => {
+    const company = inferCompanyForItem(item);
+    if (!company) return;
+    if (item.companyId === company.id) return;
+    item.companyId = company.id;
+    item.folderId = item.folderId || "cloud";
+    item.source = item.source || company.ticker || company.name;
+    item.tags = [...new Set([...materialTags(item), "自动归档", company.ticker || company.name].filter(Boolean))].slice(0, 12);
+    changed.push(item);
+  });
+  if (changed.length && persist) persistItems(changed);
+  return changed;
+}
+
 function isUploadedNote(item) {
   if (!item) return false;
   if (!isVisibleMaterial(item)) return false;
@@ -903,8 +988,10 @@ function isUploadedNote(item) {
 
 function noteListItems() {
   const query = String(state.searchQuery || "").trim().toLowerCase();
+  const activeId = activeCompany().id;
   return state.items
     .filter(isUploadedNote)
+    .filter((item) => item.companyId === activeId)
     .filter((item) => {
       if (!query) return true;
       const company = itemCompany(item);
@@ -1243,10 +1330,11 @@ function addItems(items) {
   const known = new Set(state.items.map((item) => item.id));
   const fresh = items.filter((item) => item.id && !known.has(item.id));
   state.items = [...fresh, ...state.items].slice(0, 600);
+  const autoArchived = autoArchiveItemsToCompanies({ persist: false });
   state.lastFetchedAt = new Date().toISOString();
   saveState();
   render();
-  persistItems(fresh);
+  persistItems([...new Map([...fresh, ...autoArchived].map((item) => [item.id, item])).values()]);
 }
 
 function renderNotes() {
@@ -3921,6 +4009,11 @@ function saveSelectedMaterial() {
   item.publishedAt = new Date().toISOString();
   item.createdAt = item.createdAt || item.publishedAt;
   item.companyId = item.companyId || activeCompany().id;
+  const inferred = inferCompanyForItem(item);
+  if (inferred) {
+    item.companyId = inferred.id;
+    item.tags = [...new Set([...materialTags(item), "自动归档", inferred.ticker || inferred.name].filter(Boolean))].slice(0, 12);
+  }
   saveState();
   render();
   persistItems([item]);
@@ -4122,9 +4215,11 @@ function upsertCompanyRows(rows, { activateFirst = true } = {}) {
   if (activateFirst) state.activeCompanyId = rows[0].id;
   state.activeItemId = "";
   state.searchQuery = "";
+  const autoArchived = autoArchiveItemsToCompanies({ persist: false });
   saveState();
   render();
   rows.forEach((company) => persistCompany(existing.get(company.id) || company));
+  if (autoArchived.length) persistItems(autoArchived);
   maybeAutoRefreshCompany(state.activeCompanyId);
 }
 
@@ -5237,6 +5332,7 @@ els.askForm.addEventListener("submit", (event) => {
   els.askInput.value = "";
 });
 
+autoArchiveItemsToCompanies({ persist: true });
 render();
 syncFromBackend();
 
