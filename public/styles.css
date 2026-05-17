@@ -2060,6 +2060,10 @@ body.note-reader-mode .main-stage {
   margin-bottom: 12px;
 }
 
+.deep-research-brief.compact {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
 .deep-ai-panel {
   border: 1px solid var(--line-soft);
   border-radius: 8px;
@@ -2092,6 +2096,8 @@ body.note-reader-mode .main-stage {
 
 .deep-research-brief > div,
 .deep-research-brief label,
+.deep-standard-list,
+.deep-report-box,
 .deep-check-item {
   border: 1px solid var(--line-soft);
   border-radius: 8px;
@@ -2121,6 +2127,7 @@ body.note-reader-mode .main-stage {
 }
 
 .deep-research-brief textarea,
+.deep-report-box textarea,
 .deep-check-item textarea {
   width: 100%;
   border: 1px solid var(--line-soft);
@@ -2140,6 +2147,41 @@ body.note-reader-mode .main-stage {
 .deep-checklist {
   display: grid;
   gap: 10px;
+}
+
+.deep-report-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 32%) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.deep-standard-list {
+  max-height: 680px;
+  overflow: auto;
+}
+
+.deep-standard-list strong,
+.deep-report-box span {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 900;
+}
+
+.deep-standard-list ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.deep-standard-list li {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  margin-bottom: 7px;
+}
+
+.deep-report-box textarea {
+  min-height: 680px;
+  padding: 12px;
 }
 
 .deep-check-item {
@@ -4060,6 +4102,8 @@ body.light-theme .question-group label,
 body.light-theme .deep-research-brief > div,
 body.light-theme .deep-research-brief label,
 body.light-theme .deep-ai-panel,
+body.light-theme .deep-standard-list,
+body.light-theme .deep-report-box,
 body.light-theme .deep-check-item,
 body.light-theme .model-match,
 body.light-theme .model-match span,
@@ -4079,6 +4123,7 @@ body.light-theme .daily-news-card-actions button {
 }
 
 body.light-theme .deep-research-brief textarea,
+body.light-theme .deep-report-box textarea,
 body.light-theme .deep-check-item textarea {
   border-color: #ddd7d1;
   background: #ffffff;

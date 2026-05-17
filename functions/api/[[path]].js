@@ -499,23 +499,23 @@ function portfolioImpactPrompt(title, source, companies) {
 function noteProcessPrompt(title, source, task = "analyze", options = {}) {
   if (task === "deep-research") {
     const questions = Array.isArray(options.questions) ? options.questions : [];
-    const existingAnswers = options.existingAnswers || {};
     return [
-      "你是基金经理的单公司深度研究分析师。请严格按照给定 checklist，对目标公司逐项生成深研初稿。",
+      "你是基金经理的单公司深度研究分析师。请严格按照给定 37 条 checklist，对目标公司写一份完整中文深研报告。",
       "硬性要求：",
       "- 只基于输入的公司资料、笔记、已有答案和用户特别关注，不要编造没有依据的信息。",
-      "- 每个问题都必须回答；如果资料不足，明确写“资料不足 / 待验证”，并说明还需要什么材料。",
+      "- 必须覆盖 37 条 checklist，每一条都要在报告里有对应内容。",
+      "- 如果资料不足，明确写“资料不足 / 待验证”，并说明还需要什么材料。",
       "- 答案要适合基金经理阅读：事实、判断、风险和待验证点清楚分开。",
       "- 如果用户给了特别关注，优先在相关问题中体现。",
-      "- 只返回 JSON，不要 Markdown，不要代码块。",
-      "JSON 格式必须是：",
-      "{\"answers\":{\"q1\":\"...\",\"q2\":\"...\"}}",
+      "- 输出 Markdown 报告，不要返回 JSON，不要代码块。",
+      "- 报告结构必须紧凑，按 37 条标准编号，每条用 3-6 个 bullet points。",
+      "- 每条尽量包含：结论、依据、待验证。",
       `目标公司：${options.company?.name || ""} ${options.company?.ticker || ""}`,
-      `本次特别关注：${options.focus || "无"}`,
+      `用户备注 / 特别关注：${options.focus || "无"}`,
       "Checklist：",
-      questions.map((question, index) => `q${index + 1}. ${question}`).join("\n"),
-      "已有答案：",
-      JSON.stringify(existingAnswers).slice(0, 30000),
+      questions.map((question, index) => `${index + 1}. ${question}`).join("\n"),
+      "已有深研报告：",
+      options.existingReport || "无",
       "公司资料：",
       source
     ].join("\n");
@@ -605,7 +605,8 @@ async function processNote(context) {
     company: payload.company || {},
     focus: payload.focus || "",
     questions: payload.questions || [],
-    existingAnswers: payload.existingAnswers || {}
+    existingAnswers: payload.existingAnswers || {},
+    existingReport: payload.existingReport || ""
   });
   let result = "";
   if (provider === "google-deep-research") {

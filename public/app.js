@@ -2842,51 +2842,60 @@ function renderCompanyQuestions(ctx) {
 
 function renderCompanyDeep(ctx) {
   const answers = ctx.company.deepResearchAnswers || {};
-  const completed = deepResearchChecklist.filter((_, index) => compactText(answers[`q${index + 1}`])).length;
-  const focus = ctx.company.deepResearchFocus || "";
+  const legacyReport = renderLegacyDeepResearchReport(answers);
+  const report = ctx.company.deepResearchReport || legacyReport;
+  const completed = report ? deepResearchChecklist.filter((question, index) => report.includes(`${index + 1}.`) || report.includes(question)).length : 0;
+  const notes = ctx.company.deepResearchNotes ?? ctx.company.deepResearchFocus ?? "";
   const companyRows = ctx.rows.filter((item) => item.companyId === ctx.company.id);
-  const source = buildDeepResearchSource(ctx.company, companyRows, focus, answers);
+  const source = buildDeepResearchSource(ctx.company, companyRows, notes, report);
   return `
     <section class="workspace-panel deep-panel">
-      <div class="panel-head"><strong>深研清单</strong><span>${completed}/${deepResearchChecklist.length} 已记录</span></div>
-      <div class="deep-research-brief">
+      <div class="panel-head"><strong>深研报告</strong><span>${completed || 0}/${deepResearchChecklist.length} 条标准</span></div>
+      <div class="deep-research-brief compact">
         <div>
           <span>公司</span>
           <strong>${escapeHtml(ctx.company.name || ctx.company.ticker)}</strong>
           <em>${escapeHtml(ctx.company.ticker || "单公司深研")}</em>
         </div>
         <label>
-          <span>本次特别关注</span>
-          <textarea data-deep-focus placeholder="例如：AWS 利润率、AI capex 对零售现金流的挤压、广告 take rate、管理层资本配置...">${escapeHtml(focus)}</textarea>
+          <span>备注 / 特别关注</span>
+          <textarea data-deep-notes placeholder="这里留空给你随时加备注。例如：AWS 利润率、AI capex、广告 take rate、管理层资本配置...">${escapeHtml(notes)}</textarea>
         </label>
       </div>
       <div class="deep-ai-panel">
         <div>
-          <strong>AI 生成深研初稿</strong>
+          <strong>让第三方 API 按 37 条标准写报告</strong>
           <span>${escapeHtml(companyRows.length ? `将读取 ${companyRows.length} 条当前公司材料` : "当前公司还没有可读取材料")}${deepResearchStatus ? ` · ${escapeHtml(deepResearchStatus)}` : ""}</span>
         </div>
-        ${renderProcessorControls({ buttonText: "生成 / 补全 37 问", busyText: "生成中...", dataAttr: "data-generate-deep-research", source })}
+        ${renderProcessorControls({ buttonText: "生成 / 更新深研报告", busyText: "生成中...", dataAttr: "data-generate-deep-research", source })}
       </div>
-      <div class="deep-checklist">
-        ${deepResearchChecklist.map((question, index) => {
-          const number = index + 1;
-          const answer = answers[`q${number}`] || "";
-          return `
-            <article class="deep-check-item ${answer ? "completed" : ""}">
-              <div class="deep-question">
-                <em>${number}</em>
-                <strong>${escapeHtml(question)}</strong>
-              </div>
-              <textarea data-deep-answer="${number}" placeholder="记录 ${escapeHtml(ctx.company.ticker || ctx.company.name)} 在这一项上的事实、判断、证据和待验证问题...">${escapeHtml(answer)}</textarea>
-            </article>
-          `;
-        }).join("")}
+      <div class="deep-report-layout">
+        <aside class="deep-standard-list">
+          <strong>37 条研究标准</strong>
+          <ol>
+            ${deepResearchChecklist.map((question) => `<li>${escapeHtml(question)}</li>`).join("")}
+          </ol>
+        </aside>
+        <label class="deep-report-box">
+          <span>深研报告</span>
+          <textarea data-deep-report placeholder="模型会在这里生成按 37 条标准组织的深研报告。你也可以直接修改。">${escapeHtml(report)}</textarea>
+        </label>
       </div>
     </section>
   `;
 }
 
-function buildDeepResearchSource(company, rows, focus = "", answers = {}) {
+function renderLegacyDeepResearchReport(answers = {}) {
+  const entries = deepResearchChecklist
+    .map((question, index) => {
+      const answer = answers[`q${index + 1}`];
+      return answer ? `## ${index + 1}. ${question}\n${answer}` : "";
+    })
+    .filter(Boolean);
+  return entries.join("\n\n");
+}
+
+function buildDeepResearchSource(company, rows, notes = "", report = "") {
   const materials = rows
     .filter(isVisibleMaterial)
     .slice(0, 80)
@@ -2903,27 +2912,12 @@ function buildDeepResearchSource(company, rows, focus = "", answers = {}) {
     `公司：${company.name || ""} ${company.ticker || ""}`,
     `行业：${inferIndustry(company)}`,
     `主题：${(company.topics || []).join(" / ") || "未设置"}`,
-    `本次特别关注：${focus || "无"}`,
-    "已有深研记录：",
-    JSON.stringify(answers || {}).slice(0, 30000),
+    `用户备注 / 特别关注：${notes || "无"}`,
+    "已有深研报告：",
+    report || "无",
     "当前公司材料：",
     materials || "暂无当前公司材料。请先上传、保存网页或抓取公开信息。"
   ].join("\n\n");
-}
-
-function parseDeepResearchResult(text) {
-  const raw = String(text || "").replace(/^```json\s*|\s*```$/g, "").trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) return {};
-    try {
-      return JSON.parse(match[0]);
-    } catch {
-      return {};
-    }
-  }
 }
 
 function renderCompanyContinuous(ctx) {
@@ -4695,8 +4689,9 @@ async function processCompanyDeepResearch() {
   const apiKeyInput = document.querySelector("#processorApiKeyInput")?.value.trim() || "";
   const remember = document.querySelector("#processorRememberKey")?.checked;
   const companyRows = activeItems().filter((item) => item.companyId === company.id);
-  const answers = company.deepResearchAnswers || {};
-  const source = buildDeepResearchSource(company, companyRows, company.deepResearchFocus || "", answers);
+  const report = company.deepResearchReport || renderLegacyDeepResearchReport(company.deepResearchAnswers || {});
+  const notes = company.deepResearchNotes ?? company.deepResearchFocus ?? "";
+  const source = buildDeepResearchSource(company, companyRows, notes, report);
 
   try {
     if (apiKeyInput && remember) {
@@ -4721,18 +4716,13 @@ async function processCompanyDeepResearch() {
         apiKey: apiKeyInput || processorStoredKey(model.provider),
         title: `${company.ticker || company.name} 深研`,
         company,
-        focus: company.deepResearchFocus || "",
+        focus: notes,
         questions: deepResearchChecklist,
-        existingAnswers: answers,
+        existingReport: report,
         source
       })
     });
-    const parsed = parseDeepResearchResult(data.result || "");
-    const generated = parsed.answers || {};
-    company.deepResearchAnswers = {
-      ...answers,
-      ...Object.fromEntries(Object.entries(generated).filter(([, value]) => compactText(value)))
-    };
+    company.deepResearchReport = data.result || "";
     company.deepResearchProcessor = {
       model: model.id,
       provider: model.provider,
@@ -4806,12 +4796,10 @@ function saveCurrentNoteIdea({ renderAfter = false } = {}) {
 function saveDeepResearchDraft({ renderAfter = false } = {}) {
   const company = activeCompany();
   if (!company) return;
-  const focusInput = document.querySelector("[data-deep-focus]");
-  if (focusInput) company.deepResearchFocus = focusInput.value;
-  company.deepResearchAnswers = company.deepResearchAnswers || {};
-  document.querySelectorAll("[data-deep-answer]").forEach((input) => {
-    company.deepResearchAnswers[`q${input.dataset.deepAnswer}`] = input.value;
-  });
+  const notesInput = document.querySelector("[data-deep-notes]");
+  if (notesInput) company.deepResearchNotes = notesInput.value;
+  const reportInput = document.querySelector("[data-deep-report]");
+  if (reportInput) company.deepResearchReport = reportInput.value;
   saveState();
   persistCompany(company);
   if (renderAfter) render();
@@ -4877,7 +4865,7 @@ document.addEventListener("click", (event) => {
   }
   const companyTab = event.target.closest("[data-company-tab]");
   if (companyTab) {
-    if (document.querySelector("[data-deep-focus], [data-deep-answer]")) saveDeepResearchDraft();
+    if (document.querySelector("[data-deep-notes], [data-deep-report]")) saveDeepResearchDraft();
     state.companyWorkspaceTab = companyTab.dataset.companyTab;
     state.readerMode = "company";
     saveState();
@@ -5066,7 +5054,7 @@ document.addEventListener("input", (event) => {
     return;
   }
 
-  const deepInput = event.target.closest("[data-deep-focus], [data-deep-answer]");
+  const deepInput = event.target.closest("[data-deep-notes], [data-deep-report]");
   if (deepInput) {
     window.clearTimeout(deepResearchSaveTimer);
     deepResearchSaveTimer = window.setTimeout(() => saveDeepResearchDraft(), 900);
