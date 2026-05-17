@@ -2060,6 +2060,36 @@ body.note-reader-mode .main-stage {
   margin-bottom: 12px;
 }
 
+.deep-ai-panel {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: #0d0b0a;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.deep-ai-panel > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.deep-ai-panel strong {
+  font-size: 16px;
+}
+
+.deep-ai-panel span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.deep-ai-panel .processor-controls {
+  margin-top: 0;
+}
+
 .deep-research-brief > div,
 .deep-research-brief label,
 .deep-check-item {
@@ -4029,6 +4059,7 @@ body.light-theme .question-group,
 body.light-theme .question-group label,
 body.light-theme .deep-research-brief > div,
 body.light-theme .deep-research-brief label,
+body.light-theme .deep-ai-panel,
 body.light-theme .deep-check-item,
 body.light-theme .model-match,
 body.light-theme .model-match span,

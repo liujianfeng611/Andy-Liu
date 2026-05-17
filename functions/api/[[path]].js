@@ -497,6 +497,30 @@ function portfolioImpactPrompt(title, source, companies) {
 }
 
 function noteProcessPrompt(title, source, task = "analyze", options = {}) {
+  if (task === "deep-research") {
+    const questions = Array.isArray(options.questions) ? options.questions : [];
+    const existingAnswers = options.existingAnswers || {};
+    return [
+      "你是基金经理的单公司深度研究分析师。请严格按照给定 checklist，对目标公司逐项生成深研初稿。",
+      "硬性要求：",
+      "- 只基于输入的公司资料、笔记、已有答案和用户特别关注，不要编造没有依据的信息。",
+      "- 每个问题都必须回答；如果资料不足，明确写“资料不足 / 待验证”，并说明还需要什么材料。",
+      "- 答案要适合基金经理阅读：事实、判断、风险和待验证点清楚分开。",
+      "- 如果用户给了特别关注，优先在相关问题中体现。",
+      "- 只返回 JSON，不要 Markdown，不要代码块。",
+      "JSON 格式必须是：",
+      "{\"answers\":{\"q1\":\"...\",\"q2\":\"...\"}}",
+      `目标公司：${options.company?.name || ""} ${options.company?.ticker || ""}`,
+      `本次特别关注：${options.focus || "无"}`,
+      "Checklist：",
+      questions.map((question, index) => `q${index + 1}. ${question}`).join("\n"),
+      "已有答案：",
+      JSON.stringify(existingAnswers).slice(0, 30000),
+      "公司资料：",
+      source
+    ].join("\n");
+  }
+
   if (task === "translate") {
     return [
       "你是专业投研笔记整理员。你的任务不是只做字面翻译，而是把原始笔记完整整理成更易读、易分析的中文材料。",
@@ -575,7 +599,13 @@ async function processNote(context) {
   const apiKey = cleanText(payload.apiKey) || (envKey ? context.env[envKey] : "");
   if (!apiKey) return json({ error: `Missing API key. Set ${envKey || "provider API key"} in Cloudflare, or paste it in the processor panel.` }, 400);
 
-  const prompt = noteProcessPrompt(title, source.slice(0, 120000), task, { companies: payload.companies || [] });
+  const prompt = noteProcessPrompt(title, source.slice(0, 120000), task, {
+    companies: payload.companies || [],
+    company: payload.company || {},
+    focus: payload.focus || "",
+    questions: payload.questions || [],
+    existingAnswers: payload.existingAnswers || {}
+  });
   let result = "";
   if (provider === "google") {
     result = await callGoogleModel(apiKey, model, prompt);

@@ -353,6 +353,7 @@ let noteProcessorBusy = false;
 let noteProcessorStatus = "";
 let ideaSaveTimer = null;
 let deepResearchSaveTimer = null;
+let deepResearchStatus = "";
 let dailyNewsBusy = false;
 let dailyNewsStatus = "";
 let stockPriceBusy = false;
@@ -2838,6 +2839,8 @@ function renderCompanyDeep(ctx) {
   const answers = ctx.company.deepResearchAnswers || {};
   const completed = deepResearchChecklist.filter((_, index) => cleanText(answers[`q${index + 1}`])).length;
   const focus = ctx.company.deepResearchFocus || "";
+  const companyRows = ctx.rows.filter((item) => item.companyId === ctx.company.id);
+  const source = buildDeepResearchSource(ctx.company, companyRows, focus, answers);
   return `
     <section class="workspace-panel deep-panel">
       <div class="panel-head"><strong>深研清单</strong><span>${completed}/${deepResearchChecklist.length} 已记录</span></div>
@@ -2851,6 +2854,13 @@ function renderCompanyDeep(ctx) {
           <span>本次特别关注</span>
           <textarea data-deep-focus placeholder="例如：AWS 利润率、AI capex 对零售现金流的挤压、广告 take rate、管理层资本配置...">${escapeHtml(focus)}</textarea>
         </label>
+      </div>
+      <div class="deep-ai-panel">
+        <div>
+          <strong>AI 生成深研初稿</strong>
+          <span>${escapeHtml(companyRows.length ? `将读取 ${companyRows.length} 条当前公司材料` : "当前公司还没有可读取材料")}${deepResearchStatus ? ` · ${escapeHtml(deepResearchStatus)}` : ""}</span>
+        </div>
+        ${renderProcessorControls({ buttonText: "生成 / 补全 37 问", busyText: "生成中...", dataAttr: "data-generate-deep-research", source })}
       </div>
       <div class="deep-checklist">
         ${deepResearchChecklist.map((question, index) => {
@@ -2869,6 +2879,46 @@ function renderCompanyDeep(ctx) {
       </div>
     </section>
   `;
+}
+
+function buildDeepResearchSource(company, rows, focus = "", answers = {}) {
+  const materials = rows
+    .filter(isVisibleMaterial)
+    .slice(0, 80)
+    .map((item, index) => [
+      `## 材料 ${index + 1}: ${readableText(item.title || "未命名材料")}`,
+      `来源：${item.source || item.type || "未知"}；时间：${formatTime(item.publishedAt || item.createdAt)}`,
+      `摘要：${readableText(item.summary || "")}`,
+      materialTranslation(item) ? `整理稿：${materialTranslation(item).slice(0, 6000)}` : "",
+      materialView(item) ? `分析稿：${materialView(item).slice(0, 4000)}` : "",
+      materialSource(item) ? `原文：${materialSource(item).slice(0, 6000)}` : ""
+    ].filter(Boolean).join("\n"))
+    .join("\n\n");
+  return [
+    `公司：${company.name || ""} ${company.ticker || ""}`,
+    `行业：${inferIndustry(company)}`,
+    `主题：${(company.topics || []).join(" / ") || "未设置"}`,
+    `本次特别关注：${focus || "无"}`,
+    "已有深研记录：",
+    JSON.stringify(answers || {}).slice(0, 30000),
+    "当前公司材料：",
+    materials || "暂无当前公司材料。请先上传、保存网页或抓取公开信息。"
+  ].join("\n\n");
+}
+
+function parseDeepResearchResult(text) {
+  const raw = String(text || "").replace(/^```json\s*|\s*```$/g, "").trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return {};
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return {};
+    }
+  }
 }
 
 function renderCompanyContinuous(ctx) {
@@ -4631,6 +4681,69 @@ async function processCurrentNote(task = "analyze") {
   }
 }
 
+async function processCompanyDeepResearch() {
+  const company = activeCompany();
+  if (!company || noteProcessorBusy) return;
+  saveDeepResearchDraft();
+  const modelId = document.querySelector("#processorModelSelect")?.value || noteProcessorModels[0].id;
+  const model = noteProcessorModels.find((row) => row.id === modelId) || noteProcessorModels[0];
+  const apiKeyInput = document.querySelector("#processorApiKeyInput")?.value.trim() || "";
+  const remember = document.querySelector("#processorRememberKey")?.checked;
+  const companyRows = activeItems().filter((item) => item.companyId === company.id);
+  const answers = company.deepResearchAnswers || {};
+  const source = buildDeepResearchSource(company, companyRows, company.deepResearchFocus || "", answers);
+
+  try {
+    if (apiKeyInput && remember) {
+      localStorage.setItem(processorKeyStorageId(model.provider), apiKeyInput);
+    }
+    localStorage.setItem("andy-workstation-note-processor-model", model.id);
+  } catch {
+    // Local key storage is optional.
+  }
+
+  noteProcessorBusy = true;
+  deepResearchStatus = `正在使用 ${model.label} 生成深研初稿...`;
+  render();
+
+  try {
+    const data = await api("process-note", {
+      method: "POST",
+      body: JSON.stringify({
+        model: model.id,
+        provider: model.provider,
+        task: "deep-research",
+        apiKey: apiKeyInput || processorStoredKey(model.provider),
+        title: `${company.ticker || company.name} 深研`,
+        company,
+        focus: company.deepResearchFocus || "",
+        questions: deepResearchChecklist,
+        existingAnswers: answers,
+        source
+      })
+    });
+    const parsed = parseDeepResearchResult(data.result || "");
+    const generated = parsed.answers || {};
+    company.deepResearchAnswers = {
+      ...answers,
+      ...Object.fromEntries(Object.entries(generated).filter(([, value]) => cleanText(value)))
+    };
+    company.deepResearchProcessor = {
+      model: model.id,
+      provider: model.provider,
+      processedAt: new Date().toISOString()
+    };
+    deepResearchStatus = `已生成：${model.label}`;
+    saveState();
+    persistCompany(company);
+  } catch (error) {
+    deepResearchStatus = `生成失败：${error.message || "模型接口暂时不可用"}`;
+  } finally {
+    noteProcessorBusy = false;
+    render();
+  }
+}
+
 async function refreshStockPrice(companyId = state.activeCompanyId) {
   const company = state.companies.find((row) => row.id === companyId) || activeCompany();
   const ticker = String(company?.ticker || "").trim().toUpperCase();
@@ -4893,6 +5006,11 @@ document.addEventListener("click", (event) => {
   const portfolioImpactNote = event.target.closest("[data-portfolio-impact-note]");
   if (portfolioImpactNote) {
     processCurrentNote("portfolio");
+    return;
+  }
+  const generateDeepResearch = event.target.closest("[data-generate-deep-research]");
+  if (generateDeepResearch) {
+    processCompanyDeepResearch();
     return;
   }
   const refreshStock = event.target.closest("[data-refresh-stock]");
